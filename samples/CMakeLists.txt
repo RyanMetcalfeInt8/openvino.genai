@@ -10,6 +10,8 @@ add_subdirectory(cpp/whisper_speech_recognition)
 add_subdirectory(cpp/rag)
 add_subdirectory(c/text_generation)
 
+add_subdirectory(cpp/onnx_genai)
+
 install(FILES
         deployment-requirements.txt
         export-requirements.txt

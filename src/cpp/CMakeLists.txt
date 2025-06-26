@@ -80,6 +80,9 @@ configure_file("${OpenVINOGenAI_SOURCE_DIR}/cmake/templates/version.cpp.in"
 file(GLOB_RECURSE SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
 list(APPEND SOURCE_FILES "${CMAKE_CURRENT_BINARY_DIR}/version.cpp")
 
+# TODO: Move this someplace more appropriate. It also needs to be able to get enabled/disabled.
+find_package(genai_interfaces REQUIRED)
+
 if(NOT ENABLE_GGUF)
     set(GGUF_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/gguf_utils/gguf.cpp
                      ${CMAKE_CURRENT_SOURCE_DIR}/src/gguf_utils/gguf_quants.cpp
@@ -105,7 +108,7 @@ endif()
 
 target_include_directories(${TARGET_NAME_OBJ} SYSTEM PRIVATE "${safetensors.h_SOURCE_DIR}")
 
-target_link_libraries(${TARGET_NAME_OBJ} PRIVATE openvino::runtime openvino::threading nlohmann_json::nlohmann_json jinja2cpp)
+target_link_libraries(${TARGET_NAME_OBJ} PRIVATE openvino::runtime openvino::threading nlohmann_json::nlohmann_json jinja2cpp genai_interfaces::genai_interfaces)
 
 target_compile_features(${TARGET_NAME_OBJ} PRIVATE cxx_std_17)
 
