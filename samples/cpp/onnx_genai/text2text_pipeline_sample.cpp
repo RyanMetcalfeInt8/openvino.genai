@@ -13,6 +13,13 @@ int main(int argc, char* argv[]) try {
 
     auto text2text_pipeline = ov::genai::create_text2text_pipeline(models_path, device);
 
+    auto generation_config = text2text_pipeline->get_generation_config();
+    generation_config.sampling_config.do_sample = true;
+    generation_config.sampling_config.temperature = 0.7;
+    generation_config.sampling_config.top_k = 40;
+    generation_config.sampling_config.rng_seed = 42;
+    text2text_pipeline->set_generation_config(generation_config);
+
     std::cout << "question:\n";
     while (std::getline(std::cin, prompt)) {
         auto results = (*text2text_pipeline)(prompt);
@@ -20,6 +27,7 @@ int main(int argc, char* argv[]) try {
         std::cout << "\n----------\n"
                      "question:\n";
     }
+
 
 } catch (const std::exception& error) {
     try {
