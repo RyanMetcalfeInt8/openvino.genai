@@ -4,6 +4,8 @@
 #include <openvino/onnx_genai/text2textpipeline.hpp>
 #include <openvino/genai/llm_pipeline.hpp>
 
+#include "pipeline_factory.hpp"
+
 namespace ov {
 namespace genai {
 
