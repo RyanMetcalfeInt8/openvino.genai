@@ -1,17 +1,15 @@
 #include <iostream>
 #include <openvino/onnx_genai/text2textpipeline.hpp>
+namespace genai = ov::genai;
 
 int main(int argc, char* argv[]) try {
-    if (argc < 2 || argc > 3) {
-        throw std::runtime_error(std::string{"Usage: "} + argv[0] + " <MODEL_DIR> <DEVICE>");
+    if (argc != 2) {
+        throw std::runtime_error(std::string{"Usage: "} + argv[0] + " <MODEL_DIR>");
     }
     std::string prompt;
     std::string models_path = argv[1];
 
-    // Default device is CPU; can be overridden by the second argument
-    std::string device = (argc == 3) ? argv[2] : "CPU";  // GPU, NPU can be used as well
-
-    auto text2text_pipeline = ov::genai::create_text2text_pipeline(models_path, device);
+    auto text2text_pipeline = genai::create_text2text_pipeline(models_path);
 
     auto generation_config = text2text_pipeline->get_generation_config();
     generation_config.sampling_config.do_sample = true;

@@ -12,9 +12,9 @@
 namespace ov {
 namespace genai {
 
-OPENVINO_GENAI_EXPORTS 
+OPENVINO_GENAI_EXPORTS
 std::shared_ptr<onnx::genai::Text2TextPipeline> create_text2text_pipeline(const std::filesystem::path& models_path,
-	                                                                      const std::string& device);
+                                                                          const std::string& device = "CPU");
 
 }  // namespace genai
 }  // namespace ov
