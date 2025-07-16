@@ -4,6 +4,8 @@
 #include <openvino/onnx_genai/text2textpipeline.hpp>
 #include <openvino/genai/llm_pipeline.hpp>
 
+#include "pipeline_factory.hpp"
+
 namespace ov {
 namespace genai {
 
@@ -138,7 +140,26 @@ std::shared_ptr<onnx::genai::Text2TextPipeline> create_text2text_pipeline(const 
     return std::make_shared<OpenVINOText2TextPipeline>(models_path, device);
 }
 
-
-
 }  // namespace genai
 }  // namespace ov
+
+// Automatically register the OpenVINO backend with the factory.
+namespace {
+    struct Registrar {
+        Registrar() {
+            PipelineFactory::GetInstance().Register("openvino",
+                [](const std::filesystem::path& path, const std::string& device) {
+                    return std::make_shared<ov::genai::OpenVINOText2TextPipeline>(path, device);
+                }
+            );
+        }
+    };
+    static Registrar registrar;
+}
+
+// This dummy function forces the linker to include this file,
+// ensuring the static Registrar object above is initialized.
+void link_openvino_backend() {
+    // This function can be empty.
+}
+
