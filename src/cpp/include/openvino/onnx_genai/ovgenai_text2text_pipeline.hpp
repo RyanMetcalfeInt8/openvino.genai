@@ -17,8 +17,15 @@ namespace ov::genai {
 class OVGenAIText2TextPipeline : public Pipeline {
 public:
     OVGenAIText2TextPipeline(const std::filesystem::path& models_path, const std::vector<Device> devices) {
-        if (devices.size() != 1) {
+        switch (devices.size()) {
+        case 0:
+            throw std::invalid_argument("No devices provided for OV GenAI Text2Text pipeline initialization.");
+            break;
+        case 1:
+            break;
+        default:
             throw std::invalid_argument("OVGenAI text2text pipeline does not have multidevice fallback support.");
+            break;
         }
         m_llm_pipeline = std::make_shared<ov::genai::LLMPipeline>(models_path, devices[0].identifier);
         //TODO: This should be removed here when there is some API that can better control state
