@@ -131,7 +131,7 @@ private:
 namespace {
     struct Registrar {
         Registrar() {
-            PipelineFactory::GetInstance().Register(
+            Text2TextPipelineFactory::GetInstance().Register(
                 "openvino.genai",
                 [](const std::filesystem::path& models_path, const std::vector<onnx::genai::Device> devices) {
                     return std::make_shared<ov::genai::OVGenAIText2TextPipeline>(models_path, devices);
