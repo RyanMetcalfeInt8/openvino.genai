@@ -50,16 +50,16 @@ class SpeakerScoreConfig:
 class ContentScoreConfig:
     # WER/CER are lower-is-better distances. We map 0.0 -> perfect, then
     # degrade toward 0 as errors grow.
-    # WER bad=0.20: roughly 20% word error is a meaningful content miss.
-    # CER bad=0.10: character drift above ~10% is also a strong mismatch.
+    # WER bad=0.35: roughly 35% word error is a meaningful content miss.
+    # CER bad=0.15: character drift above ~15% is also a strong mismatch.
     # WER gets most of the weight because word correctness usually matters more
     # than minor character/punctuation differences.
     wer_good: float = 0.0
-    wer_bad: float = 0.20
+    wer_bad: float = 0.35
     cer_good: float = 0.0
-    cer_bad: float = 0.10
-    wer_weight: float = 0.85
-    cer_weight: float = 0.15
+    cer_bad: float = 0.15
+    wer_weight: float = 0.60
+    cer_weight: float = 0.40
 
     # By default, if expected text is available, content scoring now combines
     # both target-vs-expected correctness and target-vs-reference parity.

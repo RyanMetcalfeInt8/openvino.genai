@@ -11,7 +11,7 @@ import pandas as pd
 from datasets import load_dataset
 from PIL import Image
 
-from whowhatbench.model_loaders import load_model
+from whowhatbench.model_loaders import load_model, _KokoroPipeline, _KOKORO_VOICE_PREFIX_TO_LANG
 from whowhatbench import EVALUATOR_REGISTRY
 from whowhatbench.visualtext_evaluator import fix_phi3_v_eos_token_id
 from whowhatbench.utils import get_json_config
@@ -699,6 +699,19 @@ def hf_gen_speech(model, prompt, speaker_embedding=None, voice="", language="", 
         _torch.cuda.manual_seed_all(seed)
         _torch.backends.cudnn.deterministic = True
         _torch.backends.cudnn.benchmark = False
+
+    # --- Kokoro (hexgrad/Kokoro-82M via the `kokoro` package) ---
+    if isinstance(model, _KokoroPipeline):
+        voice = voice or 'af_heart'
+        language = language or 'en-us'
+        lang_code = _KOKORO_VOICE_PREFIX_TO_LANG.get(voice[0].lower(), 'a')
+        pipeline = model.get_pipeline(lang_code)
+        generator = pipeline(prompt, voice=voice)
+        chunks = [audio for _, _, audio in generator]
+        if not chunks:
+            raise ValueError("Kokoro pipeline returned no audio chunks for the given prompt.")
+        return _np.concatenate(chunks).reshape(-1), 24000
+
     # Transformers TextToAudioPipeline routes generate-time kwargs through the
     # named `forward_params` dict, NOT as top-level keyword arguments.  Passing
     # speaker_embeddings=... as a top-level kwarg causes _sanitize_parameters to
@@ -1077,7 +1090,7 @@ def print_rag_results(evaluator):
 
 
 def print_speech_results(evaluator):
-    metric_of_interest = "speaker score"
+    metric_of_interest = "overall score"
     worst_examples = evaluator.worst_examples(top_k=5, metric=metric_of_interest)
     logger.info("TOP WORST RESULTS")
     for i, e in enumerate(worst_examples):
@@ -1086,6 +1099,7 @@ def print_speech_results(evaluator):
         )
         logger.info(f"Top-{i+1} example:")
         logger.info("## Prompt:\n%s\n", e["prompt"])
+        logger.info("## overall score: %.5f", e["overall score"])
         logger.info("## speaker score: %.5f", e["speaker score"])
         logger.info("## content score: %.5f", e["content score"])
         logger.info("## prosody score: %.5f", e["prosody score"])

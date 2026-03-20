@@ -22,6 +22,7 @@ SPEAKER_SCORE_COL = "speaker score"
 CONTENT_SCORE_COL = "content score"
 PROSODY_SCORE_COL = "prosody score"
 ACOUSTIC_SCORE_COL = "acoustic score"
+OVERALL_SCORE_COL = "overall score"
 
 
 def _safe_metric_mean(values):
@@ -136,6 +137,7 @@ class SpeechGenerationEvaluator(BaseEvaluator):
         content_scores = []
         prosody_scores = []
         acoustic_scores = []
+        overall_scores = []
 
         for idx in tqdm(range(max_samples), desc="TTS similarity evaluation"):
             gt_row = self.gt_data.iloc[idx]
@@ -174,12 +176,14 @@ class SpeechGenerationEvaluator(BaseEvaluator):
             content_scores.append(scores.content_score)
             prosody_scores.append(scores.prosody_score)
             acoustic_scores.append(scores.acoustic_score)
+            overall_scores.append(scores.overall_score)
 
         all_metrics_per_prompt = {
             SPEAKER_SCORE_COL: speaker_scores,
             CONTENT_SCORE_COL: content_scores,
             PROSODY_SCORE_COL: prosody_scores,
             ACOUSTIC_SCORE_COL: acoustic_scores,
+            OVERALL_SCORE_COL: overall_scores,
         }
 
         all_metrics = {
@@ -187,6 +191,7 @@ class SpeechGenerationEvaluator(BaseEvaluator):
             CONTENT_SCORE_COL: _safe_metric_mean(content_scores),
             PROSODY_SCORE_COL: _safe_metric_mean(prosody_scores),
             ACOUSTIC_SCORE_COL: _safe_metric_mean(acoustic_scores),
+            OVERALL_SCORE_COL: _safe_metric_mean(overall_scores),
         }
 
         self.last_cmp = pd.DataFrame(
@@ -200,7 +205,7 @@ class SpeechGenerationEvaluator(BaseEvaluator):
 
         return pd.DataFrame(all_metrics_per_prompt), pd.DataFrame([all_metrics])
 
-    def worst_examples(self, top_k: int = 5, metric=SPEAKER_SCORE_COL):
+    def worst_examples(self, top_k: int = 5, metric=OVERALL_SCORE_COL):
         assert self.last_cmp is not None
 
         res = self.last_cmp.nsmallest(top_k, metric)

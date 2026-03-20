@@ -744,8 +744,45 @@ def load_speech_generation_genai_pipeline(model_dir, device="CPU", ov_config=Non
     )
 
 
+_KOKORO_VOICE_PREFIX_TO_LANG = {
+    'a': 'a',  # American English
+    'b': 'b',  # British English
+    'e': 'e',  # Spanish
+    'f': 'f',  # French
+    'h': 'h',  # Hindi
+    'i': 'i',  # Italian
+    'j': 'j',  # Japanese
+    'p': 'p',  # Brazilian Portuguese
+    'z': 'z',  # Mandarin Chinese
+}
+
+
+class _KokoroPipeline:
+    """Lazy wrapper around kokoro.KPipeline that caches pipelines by lang_code.
+
+    Instantiated when a Kokoro model is loaded under --hf mode.  Defers
+    creating the real KPipeline until first use so that the lang_code can be
+    derived from the voice name supplied at generation time.
+    """
+
+    def __init__(self, model_id: str):
+        self._repo_id = model_id
+        self._cache: dict = {}
+
+    def get_pipeline(self, lang_code: str = 'a'):
+        if lang_code not in self._cache:
+            from kokoro import KPipeline  # noqa: PLC0415
+            self._cache[lang_code] = KPipeline(lang_code=lang_code, repo_id=self._repo_id)
+        return self._cache[lang_code]
+
+
 def load_speech_generation_model(model_id, device="CPU", ov_config=None, use_hf=False, use_genai=False, **kwargs):
     if use_hf:
+        model_basename = os.path.basename(model_id.rstrip('/\\')).lower()
+        if 'kokoro' in model_basename:
+            logger.info("Detected Kokoro model — using kokoro.KPipeline backend")
+            return _KokoroPipeline(model_id)
+
         logger.info("Using HF Transformers API")
         pipeline_kwargs = {"task": "text-to-speech", "model": model_id}
         if device.lower() == "cpu":
