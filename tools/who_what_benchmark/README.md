@@ -149,6 +149,30 @@ wwb --target-model ltx-video-model --gt-data video_gen_test/gt.csv --model-type 
 wwb --target-model ltx-video-model --gt-data video_gen_test/gt.csv --model-type text-to-video --genai --output ltx_video_genai
 ```
 
+### Compare Speech generation models (Text-to-Speech)
+```sh
+# Ground truth generation with HF text-to-speech pipeline
+wwb --base-model <hf_tts_model_id> --gt-data tts_test/gt.csv --model-type speech-generation --hf --num-samples 30
+
+# Ground truth generation with OpenVINO GenAI Text2SpeechPipeline
+# Reference wav files will be stored in the "reference" subfolder near gt.csv.
+wwb --base-model <speech_model_dir> --gt-data tts_test/gt.csv --model-type speech-generation --genai --num-samples 30
+
+# Compare target model against the generated references
+# Target wav files will be stored in the "target" subfolder (or inside --output if provided).
+wwb --target-model <speech_model_dir_optimized> --gt-data tts_test/gt.csv --model-type speech-generation --genai --output tts_eval
+
+# Optional Kokoro/SpeechT5 controls
+# --speech-voice and --speech-language are passed to Text2SpeechPipeline.generate(...)
+# --speaker-embedding-file-path is supported for SpeechT5-style speaker conditioning.
+```
+
+Speech generation scoring uses `evaluate_tts_similarity` API from `tts_similarity_eval_scored.py` and reports these WWB metrics:
+- `speaker score`
+- `content score`
+- `prosody score`
+- `acoustic score`
+
 ### API
 The API provides a way to access to investigate the worst generated text examples.
 
