@@ -28,6 +28,10 @@ To install WWB and its dependencies, follow these steps:
 ```
     pip install .
 ```
+If you want to run speech-generation evaluation, install the extra evaluator dependencies separately:
+```
+pip install -r requirements-speech-generation.txt
+```
 To install WWB with nightly builds of openvino, openvino-tokenizers, and openvino-genai, use the following command:
 ```
 PIP_PRE=1 \
@@ -151,6 +155,48 @@ wwb --target-model ltx-video-model --gt-data video_gen_test/gt.csv --model-type 
 # compute metrics with GenAI
 wwb --target-model ltx-video-model --gt-data video_gen_test/gt.csv --model-type text-to-video --genai --output ltx_video_genai
 ```
+
+### Compare Speech-generation models
+```sh
+# Export SpeechT5 to OpenVINO.
+optimum-cli export openvino --model microsoft/speecht5_tts --model-kwargs "{\"vocoder\": \"microsoft/speecht5_hifigan\"}" speecht5_tts_ov
+
+# Download speaker embeddings (Replace with your own embeddings if needed)
+hf download Xenova/cmu-arctic-xvectors-extracted cmu_us_slt_arctic-wav-arctic_a0508.bin --repo-type dataset --local-dir .
+
+# Collect reference audio with the Hugging Face baseline.
+# Reference wav files will be stored under "reference" subfolder under the same path with .csv.
+wwb --base-model microsoft/speecht5_tts --gt-data speech_gen_test/gt.csv --model-type speech-generation --speaker_embeddings cmu_us_slt_arctic-wav-arctic_a0508.bin --hf
+
+# Compute the metric
+# Target wav files will be stored in the "target" subfolder under the same path with .csv.
+# you can also specify the parameter: --output [custom folder], then the target wav files and the corresponding CSV files with metrics will be saved to that folder.
+# compute metrics with optimum-intel
+wwb --target-model speecht5_tts_ov --gt-data speech_gen_test/gt.csv --model-type speech-generation --output optimum_output --speaker_embeddings cmu_us_slt_arctic-wav-arctic_a0508.bin
+# compute metrics with GenAI
+wwb --target-model speecht5_tts_ov --gt-data speech_gen_test/gt.csv --model-type speech-generation --output genai_output --speaker_embeddings cmu_us_slt_arctic-wav-arctic_a0508.bin --genai
+```
+
+Speech-generation evaluation writes audio at 16 kHz for both reference and target files before scoring.
+
+The speech-generation evaluator reports these metrics:
+
+* `speaker score` - speaker similarity based on SpeechBrain speaker verification.
+* `content score` - transcript similarity between base model and target model output, based on faster-whisper transcription and normalized text comparison.
+* `acoustic score` - overall sound-character similarity based on spectral features.
+* `duration score` - relative utterance length similarity between target and reference.
+* `overall score` - aggregate score used for sorting worst examples.
+
+The required input CSV for speech-generation must contain these columns:
+
+* `prompts` - input text to synthesize.
+* `audio` - path to reference audio file.
+
+The optional input CSV may also contain:
+
+* `speaker_embeddings` - optional path to a binary float32 xvector file.
+
+
 
 ### API
 The API provides a way to access to investigate the worst generated text examples.
