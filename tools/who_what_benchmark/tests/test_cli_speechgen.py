@@ -4,6 +4,7 @@
 import pytest
 import logging
 import re
+import subprocess
 from pathlib import Path
 
 from conftest import convert_model, run_wwb
@@ -143,3 +144,28 @@ def run_test(model_id, model_type, speaker_embeddings, optimum_threshold, genai_
 def test_tts_speecht5(model_id, model_type, optimum_threshold, genai_threshold, tmp_path):
     speaker_embeddings = get_speaker_embedding()
     run_test(model_id, model_type, speaker_embeddings, optimum_threshold, genai_threshold, tmp_path)
+
+
+@pytest.mark.speech_generation
+@pytest.mark.kokoro
+def test_tts_kokoro_hf_requires_voice(tmp_path):
+    gt_file = tmp_path / "gt.csv"
+
+    with pytest.raises(subprocess.CalledProcessError) as error:
+        run_wwb(
+            [
+                "--base-model",
+                "hexgrad/Kokoro-82M",
+                "--num-samples",
+                "1",
+                "--gt-data",
+                gt_file,
+                "--device",
+                "CPU",
+                "--model-type",
+                "speech-generation",
+                "--hf",
+            ]
+        )
+
+    assert "Kokoro HF mode requires --speech-voice" in error.value.output

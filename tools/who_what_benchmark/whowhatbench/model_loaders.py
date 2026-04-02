@@ -67,6 +67,7 @@ class GenAIModelWrapper:
 
     def __init__(self, model, model_dir, model_type):
         self.model = model
+        self.model_dir = model_dir
         self.model_type = model_type
 
         if model_type in (
@@ -793,10 +794,18 @@ def _load_speecht5_hifigan_vocoder():
     return SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan")
 
 
+def _is_kokoro_model_id(model_id):
+    return isinstance(model_id, str) and "kokoro" in model_id.lower()
+
+
 def load_speech_generation_model(model_id, device="CPU", ov_config=None, use_hf=False, use_genai=False, **kwargs):
-    from .speech_generation_evaluator import TextToSpeechModelWrapper
+    from .speech_generation_evaluator import KokoroHFModelWrapper, TextToSpeechModelWrapper
 
     if use_hf:
+        if _is_kokoro_model_id(model_id):
+            logger.info("Using Kokoro HF API")
+            return KokoroHFModelWrapper(model_id)
+
         logger.info("Using HF Transformers API")
         from transformers import SpeechT5ForTextToSpeech
 
@@ -816,6 +825,12 @@ def load_speech_generation_model(model_id, device="CPU", ov_config=None, use_hf=
     if use_genai:
         logger.info("Using OpenVINO GenAI API")
         return load_speech_generation_genai_pipeline(model_id, device, ov_config, **kwargs)
+
+    if _is_kokoro_model_id(model_id):
+        raise ValueError(
+            "Optimum mode is not supported for Kokoro yet. "
+            "Use --hf for Hugging Face Kokoro or --genai for OpenVINO GenAI Kokoro."
+        )
 
     logger.info("Using Optimum API")
     from optimum.intel.openvino import OVModelForTextToSpeechSeq2Seq

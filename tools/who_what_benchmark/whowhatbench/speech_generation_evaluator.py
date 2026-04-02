@@ -40,6 +40,10 @@ class TextToSpeechModelWrapper:
             return getattr(self, attr)
         return getattr(self.model, attr)
 
+    def get_speaker_embedding_shape(self):
+        # SpeechT5 expects a single xvector with 512 values.
+        return (1, 512)
+
     def generate(self, prompt, speaker_embedding=None, **_kwargs):
         if speaker_embedding is None:
             raise ValueError(
@@ -95,6 +99,78 @@ class TextToSpeechModelWrapper:
         return _SpeechResult(speech)
 
 
+class KokoroHFModelWrapper:
+    """Wrapper around kokoro.KPipeline to match evaluator's model.generate() interface."""
+
+    def __init__(self, model_id):
+        from kokoro import KPipeline
+
+        self._kpipeline_cls = KPipeline
+        self._model_id = model_id
+        self._lang_code = "a"
+        self.model = self._kpipeline_cls(lang_code=self._lang_code, repo_id=self._model_id)
+        self.model_type = "speech-generation"
+
+    @staticmethod
+    def _normalize_kokoro_lang_code(language: str) -> str:
+        if not isinstance(language, str) or language.strip() == "":
+            return "a"
+
+        normalized = language.strip().lower()
+        lang_map = {
+            "en-us": "a",
+            "en-gb": "b",
+            "es": "e",
+            "fr-fr": "f",
+            "hi": "h",
+            "it": "i",
+            "pt-br": "p",
+            "ja": "j",
+            "zh": "z",
+        }
+        if normalized in lang_map:
+            return lang_map[normalized]
+        if len(normalized) == 1:
+            return normalized
+
+        raise ValueError(
+            f"Unsupported Kokoro HF language '{language}'. "
+            "Use one of: en-us, en-gb, es, fr-fr, hi, it, pt-br, ja, zh."
+        )
+
+    def generate(self, prompt, speaker_embedding=None, language="", voice="", **_kwargs):
+        del speaker_embedding  # HF Kokoro uses voice names, not OpenVINO speaker embedding tensors.
+
+        requested_lang_code = self._normalize_kokoro_lang_code(language)
+        if requested_lang_code != self._lang_code:
+            self._lang_code = requested_lang_code
+            self.model = self._kpipeline_cls(lang_code=self._lang_code, repo_id=self._model_id)
+
+        selected_voice = voice.strip() if isinstance(voice, str) else ""
+        if not selected_voice:
+            raise ValueError("Kokoro HF mode requires --speech-voice, for example 'af_heart'.")
+
+        kwargs = {"voice": selected_voice}
+
+        generator = self.model(prompt, **kwargs)
+        first_result = next(iter(generator), None)
+        if first_result is None:
+            raise ValueError("Kokoro HF pipeline returned no audio output.")
+
+        _, _, audio = first_result
+
+        class _Speech:
+            def __init__(self, data):
+                self.data = data
+
+        class _SpeechResult:
+            def __init__(self, data):
+                self.speeches = [_Speech(data)]
+                self.output_sample_rate = 24000
+
+        return _SpeechResult(audio)
+
+
 def _safe_metric_mean(values):
     arr = np.array([np.nan if value is None else value for value in values], dtype=float)
     if np.isnan(arr).all():
@@ -114,6 +190,8 @@ class SpeechGenerationEvaluator(BaseEvaluator):
         sample_rate: int = 16000,
         speaker_embedding_file_path: str = None,
         whisper_model: str = "base.en",
+        speech_language: str = "",
+        speech_voice: str = "",
     ) -> None:
         if base_model is None and gt_data is None:
             raise ValueError("Speech generation pipeline for evaluation or ground truth data must be defined")
@@ -128,10 +206,13 @@ class SpeechGenerationEvaluator(BaseEvaluator):
         self.last_cmp = None
         self.speaker_embedding_file_path = speaker_embedding_file_path
         self.speaker_embedding = None
+        self.speech_language = speech_language.strip().lower() if isinstance(speech_language, str) else ""
+        self.speech_voice = speech_voice.strip() if isinstance(speech_voice, str) else ""
 
         if self.speaker_embedding_file_path is not None and not os.path.exists(self.speaker_embedding_file_path):
             raise ValueError(f"Speaker embedding file does not exist: {self.speaker_embedding_file_path}")
-        self.speaker_embedding = self._load_speaker_embedding(self.speaker_embedding_file_path)
+        # Speaker embedding tensor shape depends on backend (SpeechT5 vs Kokoro), so load lazily.
+        self.speaker_embedding = None
 
         self.gt_dir = os.path.dirname(gt_data) if gt_data else os.getcwd()
 
@@ -224,7 +305,7 @@ class SpeechGenerationEvaluator(BaseEvaluator):
         if missing_columns:
             raise ValueError(f"{data_name.capitalize()} is missing required columns: {', '.join(missing_columns)}")
 
-    def _load_speaker_embedding(self, speaker_embedding_file_path: str):
+    def _load_speaker_embedding(self, speaker_embedding_file_path: str, expected_shape=None):
         if speaker_embedding_file_path is None:
             return None
 
@@ -233,16 +314,22 @@ class SpeechGenerationEvaluator(BaseEvaluator):
         speaker_embedding = np.fromfile(speaker_embedding_file_path, dtype=np.float32)
         if speaker_embedding.size == 0:
             raise ValueError(f"Speaker embedding file is empty: {speaker_embedding_file_path}")
-        if speaker_embedding.size != 512:
+
+        if expected_shape is None:
+            expected_shape = (1, 512)
+
+        expected_dims = tuple(int(dim) for dim in expected_shape)
+        expected_flat_size = int(np.prod(expected_dims))
+        if speaker_embedding.size != expected_flat_size:
             raise ValueError(
                 f"Unexpected speaker embedding size {speaker_embedding.size} in {speaker_embedding_file_path}. "
-                "Expected flattened size 512."
+                f"Expected flattened size {expected_flat_size} for shape {expected_dims}."
             )
-        return ov.Tensor(speaker_embedding.reshape(1, 512))
+        return ov.Tensor(speaker_embedding.reshape(expected_dims))
 
     def _generate_data(self, model, gen_speech_fn=None, audio_dir="reference"):
-        def default_gen_speech_fn(model, prompt, speaker_embedding=None):
-            result = model.generate(prompt, speaker_embedding)
+        def default_gen_speech_fn(model, prompt, speaker_embedding=None, language="", voice=""):
+            result = model.generate(prompt, speaker_embedding, language=language, voice=voice)
             audio_data = np.array(result.speeches[0].data).reshape(-1)
             try:
                 sr = int(result.output_sample_rate)
@@ -274,6 +361,11 @@ class SpeechGenerationEvaluator(BaseEvaluator):
         audios = []
         prompt_values = data["prompts"].values
 
+        if model is not None and hasattr(model, "get_speaker_embedding_shape"):
+            expected_shape = tuple(int(dim) for dim in model.get_speaker_embedding_shape())
+        else:
+            expected_shape = (1, 512)
+
         for idx, prompt in tqdm(enumerate(prompt_values), total=len(prompt_values), desc="Evaluate pipeline"):
             speaker_embedding_file_path = self.speaker_embedding_file_path
             if "speaker_embeddings" in data.columns and pd.notna(data.iloc[idx]["speaker_embeddings"]):
@@ -282,7 +374,7 @@ class SpeechGenerationEvaluator(BaseEvaluator):
                     speaker_embedding_file_path = None
 
             if speaker_embedding_file_path:
-                speaker_embedding = self._load_speaker_embedding(speaker_embedding_file_path)
+                speaker_embedding = self._load_speaker_embedding(speaker_embedding_file_path, expected_shape)
             else:
                 speaker_embedding = self.speaker_embedding
 
@@ -290,6 +382,8 @@ class SpeechGenerationEvaluator(BaseEvaluator):
                 model,
                 prompt,
                 speaker_embedding=speaker_embedding,
+                language=self.speech_language,
+                voice=self.speech_voice,
             )
 
             audio_path = os.path.join(audio_dir, f"{idx}.wav")
