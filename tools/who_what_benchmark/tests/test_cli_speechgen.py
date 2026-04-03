@@ -133,6 +133,97 @@ def run_test(model_id, model_type, speaker_embeddings, optimum_threshold, genai_
     assert genai_score_no_gen == genai_score
 
 
+def run_kokoro_test(model_id, model_type, speech_voice, speech_language, optimum_threshold, genai_threshold, tmp_path):
+    gt_file = tmp_path / "gt.csv"
+    model_path = convert_model(model_id)
+
+    run_wwb(
+        [
+            "--base-model",
+            model_id,
+            "--num-samples",
+            "1",
+            "--gt-data",
+            gt_file,
+            "--device",
+            "CPU",
+            "--model-type",
+            model_type,
+            "--speech-voice",
+            speech_voice,
+            "--speech-language",
+            speech_language,
+            "--hf",
+        ]
+    )
+
+    output = run_wwb(
+        [
+            "--target-model",
+            model_path,
+            "--num-samples",
+            "1",
+            "--gt-data",
+            gt_file,
+            "--device",
+            "CPU",
+            "--model-type",
+            model_type,
+            "--speech-voice",
+            speech_voice,
+            "--speech-language",
+            speech_language,
+            "--output",
+            tmp_path,
+        ]
+    )
+
+    optimum_score = get_overall_score(output)
+    if optimum_threshold is not None:
+        assert optimum_score >= optimum_threshold
+
+    output = run_wwb(
+        [
+            "--target-model",
+            model_path,
+            "--num-samples",
+            "1",
+            "--gt-data",
+            gt_file,
+            "--device",
+            "CPU",
+            "--model-type",
+            model_type,
+            "--speech-voice",
+            speech_voice,
+            "--speech-language",
+            speech_language,
+            "--genai",
+            "--output",
+            tmp_path,
+        ]
+    )
+
+    genai_score = get_overall_score(output)
+    if genai_threshold is not None:
+        assert genai_score >= genai_threshold
+
+    output = run_wwb(
+        [
+            "--target-data",
+            tmp_path / "target.csv",
+            "--num-samples",
+            "1",
+            "--gt-data",
+            gt_file,
+            "--model-type",
+            model_type,
+        ]
+    )
+    genai_score_no_gen = get_overall_score(output)
+    assert genai_score_no_gen == genai_score
+
+
 @pytest.mark.speech_generation
 @pytest.mark.speecht5
 @pytest.mark.parametrize(
@@ -169,3 +260,15 @@ def test_tts_kokoro_hf_requires_voice(tmp_path):
         )
 
     assert "Kokoro HF mode requires --speech-voice" in error.value.output
+
+
+@pytest.mark.speech_generation
+@pytest.mark.kokoro
+@pytest.mark.parametrize(
+    ("model_id", "model_type", "speech_voice", "speech_language", "optimum_threshold", "genai_threshold"),
+    [
+        ("hexgrad/Kokoro-82M", "speech-generation", "af_heart", "en-us", 0.90, 0.90),
+    ],
+)
+def test_tts_kokoro(model_id, model_type, speech_voice, speech_language, optimum_threshold, genai_threshold, tmp_path):
+    run_kokoro_test(model_id, model_type, speech_voice, speech_language, optimum_threshold, genai_threshold, tmp_path)
