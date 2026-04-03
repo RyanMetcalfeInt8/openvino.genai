@@ -332,7 +332,7 @@ def parse_args():
         "--speaker_embeddings",
         type=str,
         default=None,
-        help="Path to binary float32 speaker embedding file for text-to-speech generation.",
+        help="Path to .bin or .npy float32 speaker embedding file for text-to-speech generation.",
     )
     parser.add_argument(
         "--speech-language",
@@ -350,7 +350,7 @@ def parse_args():
         "--tts-eval-whisper-model",
         type=str,
         default="base.en",
-        help="faster-whisper model name for TTS similarity content scoring.",
+        help="whisper model name for TTS similarity content scoring.",
     )
     parser.add_argument(
         "--pruning_ratio",
@@ -653,8 +653,13 @@ def genai_gen_text2video(
     guidance_scale=3,
     guidance_rescale=0,
     generator=None,
+    empty_adapters=False,
 ):
     kwargs = {"negative_prompt": negative_prompt} if guidance_scale > 1 else {}
+    if empty_adapters:
+        import openvino_genai
+
+        kwargs["adapters"] = openvino_genai.AdapterConfig()
     result = model.generate(
         prompt,
         num_inference_steps=num_inference_steps,
@@ -855,6 +860,7 @@ def create_evaluator(base_model, args):
                 gen_video_fn=genai_gen_text2video if args.genai else None,
                 is_genai=args.genai,
                 seed=args.seed,
+                empty_adapters=args.empty_adapters,
             )
         elif task == "speech-generation":
             return EvaluatorCLS(
@@ -863,7 +869,6 @@ def create_evaluator(base_model, args):
                 test_data=prompts,
                 num_samples=args.num_samples,
                 gen_speech_fn=genai_gen_speech if args.genai else None,
-                sample_rate=16000,
                 speaker_embedding_file_path=args.speaker_embeddings,
                 whisper_model=args.tts_eval_whisper_model,
                 speech_language=args.speech_language,

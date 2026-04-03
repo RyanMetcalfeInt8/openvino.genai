@@ -28,10 +28,6 @@ To install WWB and its dependencies, follow these steps:
 ```
     pip install .
 ```
-If you want to run speech-generation evaluation, install the extra evaluator dependencies separately:
-```
-pip install -r requirements-speech-generation.txt
-```
 To install WWB with nightly builds of openvino, openvino-tokenizers, and openvino-genai, use the following command:
 ```
 PIP_PRE=1 \
@@ -156,6 +152,21 @@ wwb --target-model ltx-video-model --gt-data video_gen_test/gt.csv --model-type 
 wwb --target-model ltx-video-model --gt-data video_gen_test/gt.csv --model-type text-to-video --genai --output ltx_video_genai
 ```
 
+### Compare Text-to-video models with LoRA (LTX-Video)
+
+Community LoRA adapters for LTX-Video are available on [HuggingFace](https://huggingface.co/models?other=base_model:adapter:Lightricks/LTX-Video).
+
+```sh
+# Export model to OpenVINO
+optimum-cli export openvino -m Lightricks/LTX-Video --weight-format fp32 ltx-video-model
+# Collect references using HuggingFace diffusers with a LoRA adapter
+wwb --base-model Lightricks/LTX-Video --gt-data ltx_lora_test/gt.csv --model-type text-to-video --adapters path/to/lora.safetensors --alphas 0.9 --hf
+# Compute metrics with OpenVINO GenAI and the same LoRA adapter
+wwb --target-model ltx-video-model --gt-data ltx_lora_test/gt.csv --model-type text-to-video --adapters path/to/lora.safetensors --alphas 0.9 --genai
+# Compare a LoRA-loaded model against a plain baseline (empty adapter override)
+wwb --target-model ltx-video-model --gt-data ltx_lora_test/gt.csv --model-type text-to-video --adapters path/to/lora.safetensors --alphas 0.9 --genai --empty_adapters
+```
+
 ### Compare Speech-generation models
 ```sh
 # Export SpeechT5 to OpenVINO.
@@ -197,21 +208,10 @@ Speech-generation evaluation writes audio at 16 kHz for both reference and targe
 The speech-generation evaluator reports these metrics:
 
 * `speaker score` - speaker similarity based on SpeechBrain speaker verification.
-* `content score` - transcript similarity between base model and target model output, based on faster-whisper transcription and normalized text comparison.
+* `content score` - transcript similarity between base model and target model output, based on whisper transcription and normalized text comparison.
 * `acoustic score` - overall sound-character similarity based on spectral features.
 * `duration score` - relative utterance length similarity between target and reference.
 * `overall score` - aggregate score used for sorting worst examples.
-
-The required input CSV for speech-generation must contain these columns:
-
-* `prompts` - input text to synthesize.
-* `audio` - path to reference audio file.
-
-The optional input CSV may also contain:
-
-* `speaker_embeddings` - optional path to a binary float32 speaker embedding file. For SpeechT5 this is an xvector file. For Kokoro this can be a Kokoro voice-pack `.bin` file.
-
-
 
 ### API
 The API provides a way to access to investigate the worst generated text examples.

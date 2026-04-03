@@ -6,6 +6,7 @@ from __future__ import annotations
 from typing import Any, Union
 
 import os
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -48,7 +49,7 @@ class TextToSpeechModelWrapper:
         if speaker_embedding is None:
             raise ValueError(
                 "This model requires speaker embeddings but none were provided. "
-                "Pass --speaker_embeddings with a binary float32 xvector file."
+                "Pass --speaker_embeddings with a .bin or .npy float32 xvector file."
             )
 
         import torch
@@ -232,7 +233,6 @@ class SpeechGenerationEvaluator(BaseEvaluator):
         test_data: Union[str, list] = None,
         num_samples: int = None,
         gen_speech_fn=None,
-        sample_rate: int = 16000,
         speaker_embedding_file_path: str = None,
         whisper_model: str = "base.en",
         speech_language: str = "",
@@ -244,10 +244,7 @@ class SpeechGenerationEvaluator(BaseEvaluator):
         self.test_data = test_data
         self.num_samples = num_samples
         self.generation_fn = gen_speech_fn
-        self.sample_rate = sample_rate
         self.whisper_model = whisper_model
-        self.whisper_device = "cpu"
-        self.whisper_compute_type = "default"
         self.last_cmp = None
         self.speaker_embedding_file_path = speaker_embedding_file_path
         self.speaker_embedding = None
@@ -262,10 +259,7 @@ class SpeechGenerationEvaluator(BaseEvaluator):
         self.gt_dir = os.path.dirname(gt_data) if gt_data else os.getcwd()
 
         self._evaluator = TTSSimilarityEvaluator(
-            sample_rate=self.sample_rate,
             whisper_model=self.whisper_model,
-            whisper_device=self.whisper_device,
-            whisper_compute_type=self.whisper_compute_type,
         )
 
         if base_model:
@@ -356,7 +350,13 @@ class SpeechGenerationEvaluator(BaseEvaluator):
 
         import openvino as ov
 
-        speaker_embedding = np.fromfile(speaker_embedding_file_path, dtype=np.float32)
+        embedding_path = Path(speaker_embedding_file_path)
+        if embedding_path.suffix.lower() == ".npy":
+            speaker_embedding = np.load(embedding_path)
+        else:
+            speaker_embedding = np.fromfile(embedding_path, dtype=np.float32)
+
+        speaker_embedding = np.asarray(speaker_embedding, dtype=np.float32).reshape(-1)
         if speaker_embedding.size == 0:
             raise ValueError(f"Speaker embedding file is empty: {speaker_embedding_file_path}")
 
@@ -432,13 +432,7 @@ class SpeechGenerationEvaluator(BaseEvaluator):
             )
 
             audio_path = os.path.join(audio_dir, f"{idx}.wav")
-            if generated_sr != self.sample_rate:
-                import librosa
-
-                generated_audio = librosa.resample(
-                    generated_audio.astype(float), orig_sr=generated_sr, target_sr=self.sample_rate
-                )
-            sf.write(audio_path, generated_audio, samplerate=self.sample_rate)
+            sf.write(audio_path, generated_audio, samplerate=generated_sr)
             audios.append(audio_path)
 
         return pd.DataFrame(
