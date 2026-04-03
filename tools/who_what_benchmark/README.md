@@ -176,15 +176,19 @@ wwb --target-model speecht5_tts_ov --gt-data speech_gen_test/gt.csv --model-type
 # compute metrics with GenAI
 wwb --target-model speecht5_tts_ov --gt-data speech_gen_test/gt.csv --model-type speech-generation --output genai_output --speaker_embeddings cmu_us_slt_arctic-wav-arctic_a0508.bin --genai
 
-# Kokoro export (for GenAI target)
+# Kokoro export
 optimum-cli export openvino --model hexgrad/Kokoro-82M --trust-remote-code ov_Kokoro-82M
 
 # Collect reference audio with Kokoro HF baseline.
 # In HF mode, Kokoro uses voice names from the model card (for example, af_heart).
 wwb --base-model hexgrad/Kokoro-82M --gt-data kokoro_test/gt.csv --model-type speech-generation --hf --speech-voice af_heart --speech-language en-us
 
+# Compute metrics with Optimum Kokoro target.
+# You can use either --speaker_embeddings (explicit Kokoro voice-pack .bin path) or --speech-voice.
+wwb --target-model ov_Kokoro-82M --gt-data kokoro_test/gt.csv --model-type speech-generation --output kokoro_optimum_output --speech-voice af_heart --speech-language en-us
+
 # Compute metrics with GenAI Kokoro target.
-# You can use either --speaker_embeddings (explicit .bin path) or --speech-voice (auto-load from <model>/voices/<voice>.bin).
+# You can use either --speaker_embeddings (explicit Kokoro voice-pack .bin path) or --speech-voice (auto-load from <model>/voices/<voice>.bin).
 wwb --target-model ov_Kokoro-82M --gt-data kokoro_test/gt.csv --model-type speech-generation --genai --output kokoro_genai_output --speech-voice af_heart --speech-language en-us
 ```
 
@@ -205,7 +209,7 @@ The required input CSV for speech-generation must contain these columns:
 
 The optional input CSV may also contain:
 
-* `speaker_embeddings` - optional path to a binary float32 xvector file.
+* `speaker_embeddings` - optional path to a binary float32 speaker embedding file. For SpeechT5 this is an xvector file. For Kokoro this can be a Kokoro voice-pack `.bin` file.
 
 
 

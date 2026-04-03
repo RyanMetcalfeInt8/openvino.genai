@@ -99,17 +99,59 @@ class TextToSpeechModelWrapper:
         return _SpeechResult(speech)
 
 
-class KokoroHFModelWrapper:
-    """Wrapper around kokoro.KPipeline to match evaluator's model.generate() interface."""
+class KokoroModelWrapper:
+    """Unified wrapper for Kokoro (HF or Optimum) via KPipeline.
+    
+    Supports both HF models and Optimum OV models by wrapping OV models in a lightweight KModel adapter.
+    """
 
-    def __init__(self, model_id):
+    def __init__(self, model_id, ov_model=None):
         from kokoro import KPipeline
 
-        self._kpipeline_cls = KPipeline
-        self._model_id = model_id
-        self._lang_code = "a"
-        self.model = self._kpipeline_cls(lang_code=self._lang_code, repo_id=self._model_id)
         self.model_type = "speech-generation"
+        self._model_id = str(model_id)
+        self._lang_code = "a"
+        # For voice loading resources, always use the HF repo ID
+        self._hf_repo_id = "hexgrad/Kokoro-82M" if ov_model is not None else self._model_id
+
+        if ov_model is not None:
+            # Optimum path: wrap OV model in KModel adapter for KPipeline inference
+            from kokoro.model import KModel
+
+            class OVKokoroAdapter(KModel):
+                """Adapts Optimum OV Kokoro model to KModel interface for KPipeline."""
+
+                def __init__(self, optimum_model):
+                    import torch
+                    torch.nn.Module.__init__(self)
+                    self.ov_model = optimum_model
+
+                    # Extract config from Optimum model
+                    config = optimum_model.config
+                    self.vocab = getattr(config, "vocab", {})
+                    self.context_length = getattr(config, "context_length", 510)
+
+                @property
+                def device(self):
+                    import torch
+                    return torch.device("cpu")
+
+                def forward_with_tokens(self, input_ids, ref_s, speed=1.0):
+                    import torch
+                    # Call Optimum model to generate audio
+                    output = self.ov_model.generate(input_ids=input_ids, ref_s=ref_s)
+                    # Return (waveform_tensor, tokens_tensor) as KModel expects
+                    if isinstance(output, tuple):
+                        output = output[0]
+                    waveform_tensor = torch.from_numpy(output) if not isinstance(output, torch.Tensor) else output
+                    return waveform_tensor, torch.tensor([])
+
+            self._ov_adapter = OVKokoroAdapter(ov_model)
+            self._pipeline = KPipeline(lang_code=self._lang_code, repo_id=self._hf_repo_id, model=self._ov_adapter)
+        else:
+            # HF path: use default KPipeline with HF model from repo_id
+            self._ov_adapter = None
+            self._pipeline = KPipeline(lang_code=self._lang_code, repo_id=self._hf_repo_id)
 
     @staticmethod
     def _normalize_kokoro_lang_code(language: str) -> str:
@@ -134,30 +176,33 @@ class KokoroHFModelWrapper:
             return normalized
 
         raise ValueError(
-            f"Unsupported Kokoro HF language '{language}'. "
+            f"Unsupported Kokoro language '{language}'. "
             "Use one of: en-us, en-gb, es, fr-fr, hi, it, pt-br, ja, zh."
         )
 
     def generate(self, prompt, speaker_embedding=None, language="", voice="", **_kwargs):
-        del speaker_embedding  # HF Kokoro uses voice names, not OpenVINO speaker embedding tensors.
+        del speaker_embedding  # Kokoro uses voice names, not embedding tensors.
 
         requested_lang_code = self._normalize_kokoro_lang_code(language)
         if requested_lang_code != self._lang_code:
             self._lang_code = requested_lang_code
-            self.model = self._kpipeline_cls(lang_code=self._lang_code, repo_id=self._model_id)
+            from kokoro import KPipeline
+            # Recreate pipeline with new language (reuse adapter if present)
+            if self._ov_adapter is not None:
+                self._pipeline = KPipeline(lang_code=self._lang_code, repo_id=self._hf_repo_id, model=self._ov_adapter)
+            else:
+                self._pipeline = KPipeline(lang_code=self._lang_code, repo_id=self._hf_repo_id)
 
         selected_voice = voice.strip() if isinstance(voice, str) else ""
         if not selected_voice:
-            raise ValueError("Kokoro HF mode requires --speech-voice, for example 'af_heart'.")
+            selected_voice = "af_heart"
 
-        kwargs = {"voice": selected_voice}
+        generator = self._pipeline(prompt, voice=selected_voice)
+        result = next(iter(generator), None)
+        if result is None:
+            raise ValueError("Kokoro pipeline returned no audio output.")
 
-        generator = self.model(prompt, **kwargs)
-        first_result = next(iter(generator), None)
-        if first_result is None:
-            raise ValueError("Kokoro HF pipeline returned no audio output.")
-
-        _, _, audio = first_result
+        audio = result.audio
 
         class _Speech:
             def __init__(self, data):
