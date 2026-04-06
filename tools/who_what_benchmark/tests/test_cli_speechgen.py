@@ -6,6 +6,7 @@ import logging
 import re
 import subprocess
 from pathlib import Path
+import sys
 
 from conftest import convert_model, run_wwb
 from ov_utils import get_ov_cache_dir
@@ -36,17 +37,21 @@ def get_speaker_embedding():
 
 
 def get_overall_score(output: str) -> float:
-    metric_pattern = r"INFO:whowhatbench\.wwb:.*overall score"
-    m = re.search(metric_pattern, output, re.DOTALL)
+    metric_pattern = r"INFO:whowhatbench\.wwb:.*overall similarity"
+    m = re.search(metric_pattern, output)
     assert m, "Could not find metrics header in output"
 
-    substr = output[m.end() :]
+    next_line = output[m.end() :].lstrip("\r").lstrip("\n").split("\n")[0]
     float_pattern = r"[-+]?\d*\.\d+"
-    matches = re.findall(float_pattern, substr)
+    matches = re.findall(float_pattern, next_line)
+    assert matches, f"Could not find scores in line: {next_line!r}"
     return float(matches[-1])
 
 
 def run_test(model_id, model_type, speaker_embeddings, optimum_threshold, genai_threshold, tmp_path):
+    if sys.platform == "darwin":
+        pytest.xfail("Ticket 184323")
+
     GT_FILE = tmp_path / "gt.csv"
     MODEL_PATH = convert_model(model_id)
 

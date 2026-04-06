@@ -203,15 +203,13 @@ wwb --target-model ov_Kokoro-82M --gt-data kokoro_test/gt.csv --model-type speec
 wwb --target-model ov_Kokoro-82M --gt-data kokoro_test/gt.csv --model-type speech-generation --genai --output kokoro_genai_output --speech-voice af_heart --speech-language en-us
 ```
 
-Speech-generation evaluation writes audio at 16 kHz for both reference and target files before scoring.
-
 The speech-generation evaluator reports these metrics:
 
 * `speaker score` - speaker similarity based on SpeechBrain speaker verification.
 * `content score` - transcript similarity between base model and target model output, based on whisper transcription and normalized text comparison.
 * `acoustic score` - overall sound-character similarity based on spectral features.
 * `duration score` - relative utterance length similarity between target and reference.
-* `overall score` - aggregate score used for sorting worst examples.
+* `overall similarity` - aggregate score used for sorting worst examples.
 
 ### API
 The API provides a way to access to investigate the worst generated text examples.

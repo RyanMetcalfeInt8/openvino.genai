@@ -24,7 +24,7 @@ SPEAKER_SCORE_COL = "speaker score"
 CONTENT_SCORE_COL = "content score"
 DURATION_SCORE_COL = "duration score"
 ACOUSTIC_SCORE_COL = "acoustic score"
-OVERALL_SCORE_COL = "overall score"
+OVERALL_SCORE_COL = "overall similarity"
 
 
 class TextToSpeechModelWrapper:
@@ -235,8 +235,7 @@ class SpeechGenerationEvaluator(BaseEvaluator):
         gen_speech_fn=None,
         speaker_embedding_file_path: str = None,
         whisper_model: str = "base.en",
-        speech_language: str = "",
-        speech_voice: str = "",
+        vocoder_path: str = None,
     ) -> None:
         if base_model is None and gt_data is None:
             raise ValueError("Speech generation pipeline for evaluation or ground truth data must be defined")
@@ -245,6 +244,7 @@ class SpeechGenerationEvaluator(BaseEvaluator):
         self.num_samples = num_samples
         self.generation_fn = gen_speech_fn
         self.whisper_model = whisper_model
+        self.vocoder_path = vocoder_path
         self.last_cmp = None
         self.speaker_embedding_file_path = speaker_embedding_file_path
         self.speaker_embedding = None

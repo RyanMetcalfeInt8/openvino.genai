@@ -353,6 +353,12 @@ def parse_args():
         help="whisper model name for TTS similarity content scoring.",
     )
     parser.add_argument(
+        "--vocoder_path",
+        type=str,
+        default=None,
+        help="Path to vocoder for text-to-speech scenarios.",
+    )
+    parser.add_argument(
         "--pruning_ratio",
         type=pruning_ratio_type,
         default=None,
@@ -871,8 +877,7 @@ def create_evaluator(base_model, args):
                 gen_speech_fn=genai_gen_speech if args.genai else None,
                 speaker_embedding_file_path=args.speaker_embeddings,
                 whisper_model=args.tts_eval_whisper_model,
-                speech_language=args.speech_language,
-                speech_voice=args.speech_voice,
+                vocoder_path=args.vocoder_path,
             )
         elif task == "visual-text" or task == "visual-video-text":
             processor, config = load_processor(args)
@@ -1077,13 +1082,32 @@ def print_rag_results(evaluator):
 
 
 def _format_score(score):
-    if score is None:
+    if pd.isna(score):
         return "N/A"
     return f"{score:.5f}"
 
 
+def _log_speech_metrics_summary(all_metrics: pd.DataFrame) -> None:
+    if all_metrics is None or all_metrics.empty:
+        logger.info(all_metrics)
+        return
+
+    row = all_metrics.iloc[[0]]
+    overall_col = "overall similarity"
+    component_cols = ["speaker score", "content score", "duration score", "acoustic score"]
+
+    if overall_col not in row.columns:
+        logger.info(all_metrics)
+        return
+
+    overall_df = row[[overall_col]]
+    present_component_cols = [column for column in component_cols if column in row.columns]
+    component_df = row[present_component_cols]
+    logger.info("%s\n%s", overall_df.to_string(index=True), component_df.to_string(index=True))
+
+
 def print_speech_results(evaluator):
-    metric_of_interest = "overall score"
+    metric_of_interest = "overall similarity"
     worst_examples = evaluator.worst_examples(top_k=5, metric=metric_of_interest)
     logger.info("TOP WORST RESULTS")
     for i, e in enumerate(worst_examples):
@@ -1092,7 +1116,7 @@ def print_speech_results(evaluator):
         )
         logger.info(f"Top-{i + 1} example:")
         logger.info("## Prompt:\n%s\n", e["prompt"])
-        logger.info("## overall score: %s", _format_score(e["overall score"]))
+        logger.info("## overall similarity: %s", _format_score(e["overall similarity"]))
         logger.info("## speaker score: %s", _format_score(e["speaker score"]))
         logger.info("## content score: %s", _format_score(e["content score"]))
         logger.info("## duration score: %s", _format_score(e["duration score"]))
@@ -1157,6 +1181,9 @@ def main():
         taylorseer_config.disable_cache_before_step = ts_cfg.get("disable_cache_before_step", 6)
         taylorseer_config.disable_cache_after_step = ts_cfg.get("disable_cache_after_step", -2)
         logger.info(f"TaylorSeer config: {taylorseer_config}")
+
+    if args.model_type == "speech-generation" and args.vocoder_path is not None:
+        kwargs["vocoder_path"] = args.vocoder_path
 
     if args.base_model is not None:
         base_model = load_model(
@@ -1223,7 +1250,10 @@ def main():
                 verbose=args.verbose,
             )
         logger.info("Metrics for model: %s", args.target_model)
-        logger.info(all_metrics)
+        if args.model_type == "speech-generation":
+            _log_speech_metrics_summary(all_metrics)
+        else:
+            logger.info(all_metrics)
 
         if args.output:
             if not os.path.exists(args.output):
