@@ -878,6 +878,8 @@ def create_evaluator(base_model, args):
                 speaker_embedding_file_path=args.speaker_embeddings,
                 whisper_model=args.tts_eval_whisper_model,
                 vocoder_path=args.vocoder_path,
+                speech_language=args.speech_language,
+                speech_voice=args.speech_voice,
             )
         elif task == "visual-text" or task == "visual-video-text":
             processor, config = load_processor(args)
