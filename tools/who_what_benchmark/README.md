@@ -203,6 +203,11 @@ wwb --target-model ov_Kokoro-82M --gt-data kokoro_test/gt.csv --model-type speec
 wwb --target-model ov_Kokoro-82M --gt-data kokoro_test/gt.csv --model-type speech-generation --genai --output kokoro_genai_output --speech-voice af_heart --speech-language en-us
 ```
 
+For SpeechT5, `--speaker_embeddings` is optional.
+If omitted for HF/Optimum, WWB will download and use
+`Xenova/cmu-arctic-xvectors-extracted/cmu_us_slt_arctic-wav-arctic_a0508.bin` automatically.
+For GenAI, this is the default speaker embedding that is compiled into the runtime.
+
 The speech-generation evaluator reports these metrics:
 
 * `speaker score` - speaker similarity based on SpeechBrain speaker verification.

@@ -22,7 +22,7 @@ def get_speaker_embedding():
     speaker_embeddings_cache_dir = get_ov_cache_dir() / "test_data" / "speaker_embeddings"
     speaker_embeddings_cache_dir.mkdir(parents=True, exist_ok=True)
 
-    filename = "cmu_us_slt_arctic-wav-arctic_a0508.bin"
+    filename = "cmu_us_bdl_arctic-wav-arctic_a0508.bin"
     embedding_file = Path(
         hf_hub_download(
             repo_id="Xenova/cmu-arctic-xvectors-extracted",
@@ -56,66 +56,65 @@ def run_test(model_id, model_type, speaker_embeddings, optimum_threshold, genai_
     MODEL_PATH = convert_model(model_id)
 
     # Collect reference with HF model
-    run_wwb(
-        [
-            "--base-model",
-            model_id,
-            "--num-samples",
-            "1",
-            "--gt-data",
-            GT_FILE,
-            "--device",
-            "CPU",
-            "--model-type",
-            model_type,
-            "--speaker_embeddings",
-            speaker_embeddings,
-            "--hf",
-        ]
-    )
+    base_args = [
+        "--base-model",
+        model_id,
+        "--num-samples",
+        "1",
+        "--gt-data",
+        GT_FILE,
+        "--device",
+        "CPU",
+        "--model-type",
+        model_type,
+        "--hf",
+    ]
+    if speaker_embeddings is not None:
+        base_args.extend(["--speaker_embeddings", speaker_embeddings])
+    run_wwb(base_args)
 
     # test Optimum
-    output = run_wwb(
-        [
-            "--target-model",
-            MODEL_PATH,
-            "--num-samples",
-            "1",
-            "--gt-data",
-            GT_FILE,
-            "--device",
-            "CPU",
-            "--model-type",
-            model_type,
-            "--speaker_embeddings",
-            speaker_embeddings,
-        ]
-    )
+    optimum_args = [
+        "--target-model",
+        MODEL_PATH,
+        "--num-samples",
+        "1",
+        "--gt-data",
+        GT_FILE,
+        "--device",
+        "CPU",
+        "--model-type",
+        model_type,
+    ]
+    if speaker_embeddings is not None:
+        optimum_args.extend(["--speaker_embeddings", speaker_embeddings])
+    print("running wwb with optimum args:", optimum_args)
+    output = run_wwb(optimum_args)
 
     optimum_score = get_overall_score(output)
     if optimum_threshold is not None:
         assert optimum_score >= optimum_threshold
 
     # test GenAI
-    output = run_wwb(
-        [
-            "--target-model",
-            MODEL_PATH,
-            "--num-samples",
-            "1",
-            "--gt-data",
-            GT_FILE,
-            "--device",
-            "CPU",
-            "--model-type",
-            model_type,
-            "--speaker_embeddings",
-            speaker_embeddings,
-            "--genai",
-            "--output",
-            tmp_path,
-        ]
-    )
+    genai_args = [
+        "--target-model",
+        MODEL_PATH,
+        "--num-samples",
+        "1",
+        "--gt-data",
+        GT_FILE,
+        "--device",
+        "CPU",
+        "--model-type",
+        model_type,
+        "--genai",
+        "--output",
+        tmp_path,
+    ]
+    if speaker_embeddings is not None:
+        genai_args.extend(["--speaker_embeddings", speaker_embeddings])
+    print("running wwb with genai args:", genai_args)
+    output = run_wwb(genai_args)
 
     genai_score = get_overall_score(output)
     if genai_threshold is not None:
@@ -277,3 +276,17 @@ def test_tts_kokoro_hf_requires_voice(tmp_path):
 )
 def test_tts_kokoro(model_id, model_type, speech_voice, speech_language, optimum_threshold, genai_threshold, tmp_path):
     run_kokoro_test(model_id, model_type, speech_voice, speech_language, optimum_threshold, genai_threshold, tmp_path)
+
+@pytest.mark.speecht5
+def test_tts_speecht5_default_speaker_embeddings(tmp_path):
+    model_id = "microsoft/speecht5_tts"
+    model_type = "speech-generation"
+    run_test(
+        model_id=model_id,
+        model_type=model_type,
+        speaker_embeddings=None,
+        optimum_threshold=0.90,
+        genai_threshold=0.90,
+        tmp_path=tmp_path,
+    )
+
