@@ -406,7 +406,11 @@ class SpeechGenerationEvaluator(BaseEvaluator):
 
         generation_fn = gen_speech_fn or default_gen_speech_fn
 
-        if self.speaker_embedding is None and isinstance(model, TextToSpeechModelWrapper):
+        if (
+            self.speaker_embedding is None
+            and self.speaker_embedding_file_path is None
+            and isinstance(model, TextToSpeechModelWrapper)
+        ):
             self.speaker_embedding_file_path = self._resolve_default_speaker_embedding_file()
             self.speaker_embedding = self._load_speaker_embedding(self.speaker_embedding_file_path)
 
