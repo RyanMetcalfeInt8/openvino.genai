@@ -5,7 +5,7 @@ from __future__ import annotations
 import collections.abc
 import openvino._pyopenvino
 import typing
-__all__: list[str] = ['Adapter', 'AdapterConfig', 'AdaptiveRKVConfig', 'AggregationMode', 'AutoencoderKL', 'AutoencoderKLLTXVideo', 'CLIPTextModel', 'CLIPTextModelWithProjection', 'CacheEvictionConfig', 'ChatHistory', 'ContinuousBatchingPipeline', 'CppStdGenerator', 'DecodedResults', 'DeepSeekR1ReasoningIncrementalParser', 'DeepSeekR1ReasoningParser', 'EncodedGenerationResult', 'EncodedResults', 'ExtendedPerfMetrics', 'FluxTransformer2DModel', 'GenerationConfig', 'GenerationFinishReason', 'GenerationHandle', 'GenerationOutput', 'GenerationResult', 'GenerationStatus', 'Generator', 'Image2ImagePipeline', 'ImageGenerationConfig', 'ImageGenerationPerfMetrics', 'IncrementalParser', 'InpaintingPipeline', 'KVCrushAnchorPointMode', 'KVCrushConfig', 'LLMPipeline', 'LTXVideoTransformer3DModel', 'Llama3JsonToolParser', 'Llama3PythonicToolParser', 'MeanStdPair', 'Parser', 'PerfMetrics', 'Phi4ReasoningIncrementalParser', 'Phi4ReasoningParser', 'PipelineMetrics', 'RawImageGenerationPerfMetrics', 'RawPerfMetrics', 'ReasoningIncrementalParser', 'ReasoningParser', 'SD3Transformer2DModel', 'SDPerModelsPerfMetrics', 'SDPerfMetrics', 'Scheduler', 'SchedulerConfig', 'SparseAttentionConfig', 'SparseAttentionMode', 'SpeechGenerationConfig', 'SpeechGenerationPerfMetrics', 'SpeechToken', 'StopCriteria', 'StreamerBase', 'StreamingStatus', 'StructuralTagItem', 'StructuralTagsConfig', 'StructuredOutputConfig', 'SummaryStats', 'T5EncoderModel', 'TaylorSeerCacheConfig', 'Text2ImagePipeline', 'Text2SpeechDecodedResults', 'Text2SpeechPipeline', 'Text2VideoPipeline', 'TextEmbeddingPipeline', 'TextParserStreamer', 'TextRerankPipeline', 'TextStreamer', 'TokenizedInputs', 'Tokenizer', 'TorchGenerator', 'UNet2DConditionModel', 'VLLMParserWrapper', 'VLMDecodedResults', 'VLMPerfMetrics', 'VLMPipeline', 'VLMRawPerfMetrics', 'VideoGenerationConfig', 'VideoGenerationPerfMetrics', 'VideoGenerationResult', 'WhisperDecodedResultChunk', 'WhisperDecodedResults', 'WhisperGenerationConfig', 'WhisperPerfMetrics', 'WhisperPipeline', 'WhisperRawPerfMetrics', 'WhisperWordTiming', 'draft_model', 'get_version']
+__all__: list[str] = ['Adapter', 'AdapterConfig', 'AdaptiveRKVConfig', 'AggregationMode', 'AutoencoderKL', 'AutoencoderKLLTXVideo', 'CLIPTextModel', 'CLIPTextModelWithProjection', 'CacheEvictionConfig', 'ChatHistory', 'ContinuousBatchingPipeline', 'CppStdGenerator', 'DecodedResults', 'DeepSeekR1ReasoningIncrementalParser', 'DeepSeekR1ReasoningParser', 'EncodedGenerationResult', 'EncodedResults', 'ExtendedPerfMetrics', 'FluxTransformer2DModel', 'GenerationConfig', 'GenerationFinishReason', 'GenerationHandle', 'GenerationOutput', 'GenerationResult', 'GenerationStatus', 'Generator', 'Image2ImagePipeline', 'ImageGenerationConfig', 'ImageGenerationPerfMetrics', 'IncrementalParser', 'InpaintingPipeline', 'KVCrushAnchorPointMode', 'KVCrushConfig', 'LLMPipeline', 'LTXVideoTransformer3DModel', 'Llama3JsonToolParser', 'Llama3PythonicToolParser', 'MeanStdPair', 'Parser', 'PerfMetrics', 'Phi4ReasoningIncrementalParser', 'Phi4ReasoningParser', 'PipelineMetrics', 'RawImageGenerationPerfMetrics', 'RawPerfMetrics', 'ReasoningIncrementalParser', 'ReasoningParser', 'SD3Transformer2DModel', 'SDPerModelsPerfMetrics', 'SDPerfMetrics', 'Scheduler', 'SchedulerConfig', 'SparseAttentionConfig', 'SparseAttentionMode', 'SpeechGenerationConfig', 'SpeechGenerationPerfMetrics', 'StopCriteria', 'StreamerBase', 'StreamingStatus', 'StructuralTagItem', 'StructuralTagsConfig', 'StructuredOutputConfig', 'SummaryStats', 'T5EncoderModel', 'TaylorSeerCacheConfig', 'Text2ImagePipeline', 'Text2SpeechDecodedResults', 'Text2SpeechPipeline', 'Text2VideoPipeline', 'TextEmbeddingPipeline', 'TextParserStreamer', 'TextRerankPipeline', 'TextStreamer', 'TokenizedInputs', 'Tokenizer', 'TorchGenerator', 'UNet2DConditionModel', 'VLLMParserWrapper', 'VLMDecodedResults', 'VLMPerfMetrics', 'VLMPipeline', 'VLMRawPerfMetrics', 'VideoGenerationConfig', 'VideoGenerationPerfMetrics', 'VideoGenerationResult', 'WhisperDecodedResultChunk', 'WhisperDecodedResults', 'WhisperGenerationConfig', 'WhisperPerfMetrics', 'WhisperPipeline', 'WhisperRawPerfMetrics', 'WhisperWordTiming', 'draft_model', 'get_version']
 class Adapter:
     """
     Immutable LoRA Adapter that carries the adaptation matrices and serves as unique adapter identifier.
@@ -240,7 +240,7 @@ class AutoencoderKL:
     @typing.overload
     def __init__(self, vae_encoder_path: os.PathLike | str | bytes, vae_decoder_path: os.PathLike | str | bytes, device: str, **kwargs) -> None:
         """
-                    AutoencoderKL class initialized only with both encoder and decoder models.
+                    AutoencoderKL class initialized with both encoder and decoder models.
                     vae_encoder_path (os.PathLike): VAE encoder directory.
                     vae_decoder_path (os.PathLike): VAE decoder directory.
                     device (str): Device on which inference will be done.
@@ -253,9 +253,48 @@ class AutoencoderKL:
                     AutoencoderKL class.
                     model (AutoencoderKL): AutoencoderKL model.
         """
+    @typing.overload
+    def __init__(self, vae_decoder_model: str, vae_decoder_weights: openvino._pyopenvino.Tensor, vae_decoder_config: AutoencoderKL.Config) -> None:
+        """
+                    AutoencoderKL class initialized only with decoder model from string and weights tensor.
+                    vae_decoder_model (str): Serialized VAE decoder model in OpenVINO IR format.
+                    vae_decoder_weights (ov.Tensor): VAE decoder weights tensor.
+                    vae_decoder_config (AutoencoderKL.Config): VAE decoder configuration.
+        """
+    @typing.overload
+    def __init__(self, vae_encoder_model: str, vae_encoder_weights: openvino._pyopenvino.Tensor, vae_decoder_model: str, vae_decoder_weights: openvino._pyopenvino.Tensor, vae_decoder_config: AutoencoderKL.Config) -> None:
+        """
+                    AutoencoderKL class initialized with both encoder and decoder models from string and weights tensors.
+                    vae_encoder_model (str): Serialized VAE encoder model in OpenVINO IR format.
+                    vae_encoder_weights (ov.Tensor): VAE encoder weights tensor.
+                    vae_decoder_model (str): Serialized VAE decoder model in OpenVINO IR format.
+                    vae_decoder_weights (ov.Tensor): VAE decoder weights tensor.
+                    vae_decoder_config (AutoencoderKL.Config): VAE decoder configuration.
+        """
+    @typing.overload
+    def __init__(self, vae_decoder_model: str, vae_decoder_weights: openvino._pyopenvino.Tensor, vae_decoder_config: AutoencoderKL.Config, device: str, **kwargs) -> None:
+        """
+                    AutoencoderKL class initialized only with decoder model from string and weights tensor with device and properties.
+                    vae_decoder_model (str): Serialized VAE decoder model in OpenVINO IR format.
+                    vae_decoder_weights (ov.Tensor): VAE decoder weights tensor.
+                    vae_decoder_config (AutoencoderKL.Config): VAE decoder configuration.
+                    device (str): Device on which inference will be done.
+                    kwargs: Device properties.
+        """
+    @typing.overload
+    def __init__(self, vae_encoder_model: str, vae_encoder_weights: openvino._pyopenvino.Tensor, vae_decoder_model: str, vae_decoder_weights: openvino._pyopenvino.Tensor, vae_decoder_config: AutoencoderKL.Config, device: str, **kwargs) -> None:
+        """
+                    AutoencoderKL class initialized with both encoder and decoder models from string and weights tensors with device and properties.
+                    vae_encoder_model (str): Serialized VAE encoder model in OpenVINO IR format.
+                    vae_encoder_weights (ov.Tensor): VAE encoder weights tensor.
+                    vae_decoder_model (str): Serialized VAE decoder model in OpenVINO IR format.
+                    vae_decoder_weights (ov.Tensor): VAE decoder weights tensor.
+                    vae_decoder_config (AutoencoderKL.Config): VAE decoder configuration.
+                    device (str): Device on which inference will be done.
+                    kwargs: Device properties.
+        """
     def compile(self, device: str, **kwargs) -> None:
         """
-        device on which inference will be done
                         Compiles the model.
                         device (str): Device to run the model on (e.g., CPU, GPU).
                         kwargs: Device properties.
@@ -405,6 +444,26 @@ class CLIPTextModel:
                     CLIPTextModel class
                     model (CLIPTextModel): CLIPText model
         """
+    @typing.overload
+    def __init__(self, model: str, weights: openvino._pyopenvino.Tensor, config: CLIPTextModel.Config, clip_tokenizer: Tokenizer) -> None:
+        """
+                    CLIPTextModel class constructor.
+                    model (str): Pre-read model.
+                    weights (ov.Tensor): Pre-read model weights tensor.
+                    config (CLIPTextModel.Config): CLIPTextModel configuration.
+                    clip_tokenizer (Tokenizer): Tokenizer for text encoding.
+        """
+    @typing.overload
+    def __init__(self, model: str, weights: openvino._pyopenvino.Tensor, config: CLIPTextModel.Config, clip_tokenizer: Tokenizer, device: str, **kwargs) -> None:
+        """
+                    CLIPTextModel class constructor.
+                    model (str): Pre-read model.
+                    weights (ov.Tensor): Pre-read model weights tensor.
+                    config (CLIPTextModel.Config): CLIPTextModel configuration.
+                    clip_tokenizer (Tokenizer): Tokenizer for text encoding.
+                    device (str): Device on which inference will be done.
+                    kwargs: Device properties.
+        """
     def compile(self, device: str, **kwargs) -> None:
         """
                         Compiles the model.
@@ -452,6 +511,26 @@ class CLIPTextModelWithProjection(CLIPTextModel):
         CLIPText model
                     CLIPTextModelWithProjection class
                     model (CLIPTextModelWithProjection): CLIPText model with projection
+        """
+    @typing.overload
+    def __init__(self, model: str, weights: openvino._pyopenvino.Tensor, config: CLIPTextModel.Config, clip_tokenizer: Tokenizer) -> None:
+        """
+                    CLIPTextModelWithProjection class constructor.
+                    model (str): Pre-read model.
+                    weights (ov.Tensor): Pre-read model weights tensor.
+                    config (CLIPTextModelWithProjection.Config): CLIPTextModelWithProjection configuration.
+                    clip_tokenizer (Tokenizer): Tokenizer for text encoding.
+        """
+    @typing.overload
+    def __init__(self, model: str, weights: openvino._pyopenvino.Tensor, config: CLIPTextModel.Config, clip_tokenizer: Tokenizer, device: str, **kwargs) -> None:
+        """
+                    CLIPTextModelWithProjection class constructor.
+                    model (str): Pre-read model.
+                    weights (ov.Tensor): Pre-read model weights tensor.
+                    config (CLIPTextModelWithProjection.Config): CLIPTextModelWithProjection configuration.
+                    clip_tokenizer (Tokenizer): Tokenizer for text encoding.
+                    device (str): Device on which inference will be done.
+                    kwargs: Device properties.
         """
 class CacheEvictionConfig:
     """
@@ -890,7 +969,7 @@ class FluxTransformer2DModel:
     @typing.overload
     def __init__(self, root_dir: os.PathLike | str | bytes, device: str, **kwargs) -> None:
         """
-                    UNet2DConditionModel class
+                    FluxTransformer2DModel class
                     root_dir (os.PathLike): Model root directory.
                     device (str): Device on which inference will be done.
                     kwargs: Device properties.
@@ -901,6 +980,26 @@ class FluxTransformer2DModel:
         FluxTransformer2DModel model
                     FluxTransformer2DModel class
                     model (FluxTransformer2DModel): FluxTransformer2DModel model
+        """
+    @typing.overload
+    def __init__(self, model: str, weights: openvino._pyopenvino.Tensor, config: FluxTransformer2DModel.Config, vae_scale_factor: typing.SupportsInt) -> None:
+        """
+                    FluxTransformer2DModel class constructor.
+                    model (str): Pre-read model.
+                    weights (ov.Tensor): Pre-read model weights tensor.
+                    config (FluxTransformer2DModel.Config): FluxTransformer2DModel configuration.
+                    vae_scale_factor (int): VAE scale factor.
+        """
+    @typing.overload
+    def __init__(self, model: str, weights: openvino._pyopenvino.Tensor, config: FluxTransformer2DModel.Config, vae_scale_factor: typing.SupportsInt, device: str, **kwargs) -> None:
+        """
+                    FluxTransformer2DModel class constructor.
+                    model (str): Pre-read model.
+                    weights (ov.Tensor): Pre-read model weights tensor.
+                    config (FluxTransformer2DModel.Config): FluxTransformer2DModel configuration.
+                    vae_scale_factor (int): VAE scale factor.
+                    device (str): Device on which inference will be done.
+                    kwargs: Device properties.
         """
     def compile(self, device: str, **kwargs) -> None:
         """
@@ -2354,6 +2453,26 @@ class SD3Transformer2DModel:
                     SD3Transformer2DModel class
                     model (SD3Transformer2DModel): SD3Transformer2DModel model
         """
+    @typing.overload
+    def __init__(self, model: str, weights: openvino._pyopenvino.Tensor, config: SD3Transformer2DModel.Config, vae_scale_factor: typing.SupportsInt) -> None:
+        """
+                    SD3Transformer2DModel class constructor.
+                    model (str): Pre-read model.
+                    weights (ov.Tensor): Pre-read model weights tensor.
+                    config (SD3Transformer2DModel.Config): SD3Transformer2DModel configuration.
+                    vae_scale_factor (int): VAE scale factor.
+        """
+    @typing.overload
+    def __init__(self, model: str, weights: openvino._pyopenvino.Tensor, config: SD3Transformer2DModel.Config, vae_scale_factor: typing.SupportsInt, device: str, **kwargs) -> None:
+        """
+                    SD3Transformer2DModel class constructor.
+                    model (str): Pre-read model.
+                    weights (ov.Tensor): Pre-read model weights tensor.
+                    config (SD3Transformer2DModel.Config): SD3Transformer2DModel configuration.
+                    vae_scale_factor (int): VAE scale factor.
+                    device (str): Device on which inference will be done.
+                    kwargs: Device properties.
+        """
     def compile(self, device: str, **kwargs) -> None:
         """
                         Compiles the model.
@@ -2772,29 +2891,6 @@ class SpeechGenerationPerfMetrics(PerfMetrics):
         ...
     @property
     def throughput(self) -> MeanStdPair:
-        ...
-class SpeechToken:
-    """
-    
-        Lightweight speech token used by `generate_from_tokens`.
-    
-        :param phonemes: token phoneme content
-        :type phonemes: str
-    
-        :param whitespace: whether a whitespace follows this token
-        :type whitespace: bool
-    
-        :param text: optional original token text for debugging
-        :type text: str
-    """
-    phonemes: str
-    text: str
-    whitespace: bool
-    @typing.overload
-    def __init__(self) -> None:
-        ...
-    @typing.overload
-    def __init__(self, phonemes: str, whitespace: bool = False, text: str = '') -> None:
         ...
 class StopCriteria:
     """
@@ -3315,6 +3411,24 @@ class T5EncoderModel:
                     T5EncoderModel class
                     model (T5EncoderModel): T5EncoderModel model
         """
+    @typing.overload
+    def __init__(self, model: str, weights: openvino._pyopenvino.Tensor, tokenizer: Tokenizer) -> None:
+        """
+                    T5EncoderModel class constructor.
+                    model (str): Pre-read model.
+                    weights (ov.Tensor): Pre-read model weights tensor.
+                    tokenizer (Tokenizer): Tokenizer for text encoding.
+        """
+    @typing.overload
+    def __init__(self, model: str, weights: openvino._pyopenvino.Tensor, tokenizer: Tokenizer, device: str, **kwargs) -> None:
+        """
+                    T5EncoderModel class constructor.
+                    model (str): Pre-read model.
+                    weights (ov.Tensor): Pre-read model weights tensor.
+                    tokenizer (Tokenizer): Tokenizer for text encoding.
+                    device (str): Device on which inference will be done.
+                    kwargs: Device properties.
+        """
     def compile(self, device: str, **kwargs) -> None:
         """
                         Compiles the model.
@@ -3625,325 +3739,11 @@ class Text2SpeechPipeline:
                                                  conversion rejects None values.
             :type phonemize_fallback_model_dir: str | None
         """
-    @typing.overload
-    def generate_from_phonemes(self, phoneme_chunks: collections.abc.Sequence[str], speaker_embedding: typing.Any = None, **kwargs) -> Text2SpeechDecodedResults:
-        """
-            Generates speech directly from precomputed Kokoro phoneme chunks.
-        
-            NOTE: This API is supported only for Kokoro backend. SpeechT5 backend throws an exception.
-        
-            :param phoneme_chunks: phoneme chunks for one output speech, or nested chunk lists for multiple speeches
-            :type phoneme_chunks: list[str] or list[list[str]]
-        
-            :param speaker_embedding: speaker embedding tensor
-            :type speaker_embedding: openvino.Tensor or None
-        
-            :param properties: speech generation parameters specified as properties
-            :type properties: dict
-        
-            :returns: generated speech waveform(s)
-            :rtype: Text2SpeechDecodedResults
-         
-         
-            SpeechGenerationConfig
-        
-            Shared parameters:
-            :param speed: speech speed multiplier.
-            :type speed: float
-            
-            Speech-generation specific parameters:
-            :param minlenratio: minimum ratio of output length to input text length; prevents output that's too short.
-            :type minlenratio: float
-        
-            :param maxlenratio: maximum ratio of output length to input text length; prevents excessively long outputs.
-            :type maxlenratio: float
-        
-            :param threshold: probability threshold for stopping decoding; when output probability exceeds above this, generation will stop.
-            :type threshold: float
-        
-            Kokoro-specific parameters:
-            :param language: language code for Kokoro G2P (for example, "en-us" or "en-gb").
-            :type language: str
-        
-            :param max_phoneme_length: maximum phoneme chunk length for Kokoro preprocessing.
-            :type max_phoneme_length: int
-        
-            :param phonemize_fallback_model_dir: Optional OpenVINO fallback phonemizer model directory.
-                                                 This applies only to fallback during phonemize / G2P
-                                                 (graphemes to phonemes), before acoustic model inference.
-                                                 If set, this OpenVINO G2P fallback is used.
-                                                 If unset (None), espeak-ng G2P fallback is used.
-                                                 For kwargs-based APIs (`SpeechGenerationConfig(**kwargs)`,
-                                                 `update_generation_config(**kwargs)`, and pipeline kwargs),
-                                                 omit this key instead of passing None because kwargs-to-AnyMap
-                                                 conversion rejects None values.
-            :type phonemize_fallback_model_dir: str | None
-        """
-    @typing.overload
-    def generate_from_phonemes(self, phoneme_chunks: collections.abc.Sequence[collections.abc.Sequence[str]], speaker_embedding: typing.Any = None, **kwargs) -> Text2SpeechDecodedResults:
-        """
-            Generates speech directly from precomputed Kokoro phoneme chunks.
-        
-            NOTE: This API is supported only for Kokoro backend. SpeechT5 backend throws an exception.
-        
-            :param phoneme_chunks: phoneme chunks for one output speech, or nested chunk lists for multiple speeches
-            :type phoneme_chunks: list[str] or list[list[str]]
-        
-            :param speaker_embedding: speaker embedding tensor
-            :type speaker_embedding: openvino.Tensor or None
-        
-            :param properties: speech generation parameters specified as properties
-            :type properties: dict
-        
-            :returns: generated speech waveform(s)
-            :rtype: Text2SpeechDecodedResults
-         
-         
-            SpeechGenerationConfig
-        
-            Shared parameters:
-            :param speed: speech speed multiplier.
-            :type speed: float
-            
-            Speech-generation specific parameters:
-            :param minlenratio: minimum ratio of output length to input text length; prevents output that's too short.
-            :type minlenratio: float
-        
-            :param maxlenratio: maximum ratio of output length to input text length; prevents excessively long outputs.
-            :type maxlenratio: float
-        
-            :param threshold: probability threshold for stopping decoding; when output probability exceeds above this, generation will stop.
-            :type threshold: float
-        
-            Kokoro-specific parameters:
-            :param language: language code for Kokoro G2P (for example, "en-us" or "en-gb").
-            :type language: str
-        
-            :param max_phoneme_length: maximum phoneme chunk length for Kokoro preprocessing.
-            :type max_phoneme_length: int
-        
-            :param phonemize_fallback_model_dir: Optional OpenVINO fallback phonemizer model directory.
-                                                 This applies only to fallback during phonemize / G2P
-                                                 (graphemes to phonemes), before acoustic model inference.
-                                                 If set, this OpenVINO G2P fallback is used.
-                                                 If unset (None), espeak-ng G2P fallback is used.
-                                                 For kwargs-based APIs (`SpeechGenerationConfig(**kwargs)`,
-                                                 `update_generation_config(**kwargs)`, and pipeline kwargs),
-                                                 omit this key instead of passing None because kwargs-to-AnyMap
-                                                 conversion rejects None values.
-            :type phonemize_fallback_model_dir: str | None
-        """
-    @typing.overload
-    def generate_from_tokens(self, tokens: collections.abc.Sequence[SpeechToken], speaker_embedding: typing.Any = None, **kwargs) -> Text2SpeechDecodedResults:
-        """
-            Generates speech directly from lightweight token stream(s).
-        
-            NOTE: This API is supported only for Kokoro backend. SpeechT5 backend throws an exception.
-        
-            :param token_batches: one token sequence (`list[SpeechToken]`) or a list of token sequences
-            :type token_batches: list[SpeechToken] or list[list[SpeechToken]]
-        
-            :param speaker_embedding: speaker embedding tensor
-            :type speaker_embedding: openvino.Tensor or None
-        
-            :param properties: speech generation parameters specified as properties
-            :type properties: dict
-        
-            :returns: generated speech waveform(s)
-            :rtype: Text2SpeechDecodedResults
-         
-         
-            SpeechGenerationConfig
-        
-            Shared parameters:
-            :param speed: speech speed multiplier.
-            :type speed: float
-            
-            Speech-generation specific parameters:
-            :param minlenratio: minimum ratio of output length to input text length; prevents output that's too short.
-            :type minlenratio: float
-        
-            :param maxlenratio: maximum ratio of output length to input text length; prevents excessively long outputs.
-            :type maxlenratio: float
-        
-            :param threshold: probability threshold for stopping decoding; when output probability exceeds above this, generation will stop.
-            :type threshold: float
-        
-            Kokoro-specific parameters:
-            :param language: language code for Kokoro G2P (for example, "en-us" or "en-gb").
-            :type language: str
-        
-            :param max_phoneme_length: maximum phoneme chunk length for Kokoro preprocessing.
-            :type max_phoneme_length: int
-        
-            :param phonemize_fallback_model_dir: Optional OpenVINO fallback phonemizer model directory.
-                                                 This applies only to fallback during phonemize / G2P
-                                                 (graphemes to phonemes), before acoustic model inference.
-                                                 If set, this OpenVINO G2P fallback is used.
-                                                 If unset (None), espeak-ng G2P fallback is used.
-                                                 For kwargs-based APIs (`SpeechGenerationConfig(**kwargs)`,
-                                                 `update_generation_config(**kwargs)`, and pipeline kwargs),
-                                                 omit this key instead of passing None because kwargs-to-AnyMap
-                                                 conversion rejects None values.
-            :type phonemize_fallback_model_dir: str | None
-        """
-    @typing.overload
-    def generate_from_tokens(self, token_batches: collections.abc.Sequence[collections.abc.Sequence[SpeechToken]], speaker_embedding: typing.Any = None, **kwargs) -> Text2SpeechDecodedResults:
-        """
-            Generates speech directly from lightweight token stream(s).
-        
-            NOTE: This API is supported only for Kokoro backend. SpeechT5 backend throws an exception.
-        
-            :param token_batches: one token sequence (`list[SpeechToken]`) or a list of token sequences
-            :type token_batches: list[SpeechToken] or list[list[SpeechToken]]
-        
-            :param speaker_embedding: speaker embedding tensor
-            :type speaker_embedding: openvino.Tensor or None
-        
-            :param properties: speech generation parameters specified as properties
-            :type properties: dict
-        
-            :returns: generated speech waveform(s)
-            :rtype: Text2SpeechDecodedResults
-         
-         
-            SpeechGenerationConfig
-        
-            Shared parameters:
-            :param speed: speech speed multiplier.
-            :type speed: float
-            
-            Speech-generation specific parameters:
-            :param minlenratio: minimum ratio of output length to input text length; prevents output that's too short.
-            :type minlenratio: float
-        
-            :param maxlenratio: maximum ratio of output length to input text length; prevents excessively long outputs.
-            :type maxlenratio: float
-        
-            :param threshold: probability threshold for stopping decoding; when output probability exceeds above this, generation will stop.
-            :type threshold: float
-        
-            Kokoro-specific parameters:
-            :param language: language code for Kokoro G2P (for example, "en-us" or "en-gb").
-            :type language: str
-        
-            :param max_phoneme_length: maximum phoneme chunk length for Kokoro preprocessing.
-            :type max_phoneme_length: int
-        
-            :param phonemize_fallback_model_dir: Optional OpenVINO fallback phonemizer model directory.
-                                                 This applies only to fallback during phonemize / G2P
-                                                 (graphemes to phonemes), before acoustic model inference.
-                                                 If set, this OpenVINO G2P fallback is used.
-                                                 If unset (None), espeak-ng G2P fallback is used.
-                                                 For kwargs-based APIs (`SpeechGenerationConfig(**kwargs)`,
-                                                 `update_generation_config(**kwargs)`, and pipeline kwargs),
-                                                 omit this key instead of passing None because kwargs-to-AnyMap
-                                                 conversion rejects None values.
-            :type phonemize_fallback_model_dir: str | None
-        """
     def get_generation_config(self) -> SpeechGenerationConfig:
         ...
     def get_speaker_embedding_shape(self) -> openvino._pyopenvino.Shape:
         """
         Get the expected speaker embedding shape for the loaded model. SpeechT5: Shape{1, 512}. Kokoro: Shape{510, 1, 256}
-        """
-    @typing.overload
-    def phonemize(self, text: str, **kwargs) -> list[str]:
-        """
-            Runs Kokoro text preprocessing and returns phoneme chunks used before acoustic inference.
-        
-            :param text_or_texts: input text(s) to phonemize
-            :type text_or_texts: str or list[str]
-        
-            :param properties: speech generation parameters specified as properties
-            :type properties: dict
-        
-            :returns: phoneme chunks (or per-input phoneme chunk lists)
-            :rtype: list[str] or list[list[str]]
-         
-         
-            SpeechGenerationConfig
-        
-            Shared parameters:
-            :param speed: speech speed multiplier.
-            :type speed: float
-            
-            Speech-generation specific parameters:
-            :param minlenratio: minimum ratio of output length to input text length; prevents output that's too short.
-            :type minlenratio: float
-        
-            :param maxlenratio: maximum ratio of output length to input text length; prevents excessively long outputs.
-            :type maxlenratio: float
-        
-            :param threshold: probability threshold for stopping decoding; when output probability exceeds above this, generation will stop.
-            :type threshold: float
-        
-            Kokoro-specific parameters:
-            :param language: language code for Kokoro G2P (for example, "en-us" or "en-gb").
-            :type language: str
-        
-            :param max_phoneme_length: maximum phoneme chunk length for Kokoro preprocessing.
-            :type max_phoneme_length: int
-        
-            :param phonemize_fallback_model_dir: Optional OpenVINO fallback phonemizer model directory.
-                                                 This applies only to fallback during phonemize / G2P
-                                                 (graphemes to phonemes), before acoustic model inference.
-                                                 If set, this OpenVINO G2P fallback is used.
-                                                 If unset (None), espeak-ng G2P fallback is used.
-                                                 For kwargs-based APIs (`SpeechGenerationConfig(**kwargs)`,
-                                                 `update_generation_config(**kwargs)`, and pipeline kwargs),
-                                                 omit this key instead of passing None because kwargs-to-AnyMap
-                                                 conversion rejects None values.
-            :type phonemize_fallback_model_dir: str | None
-        """
-    @typing.overload
-    def phonemize(self, texts: collections.abc.Sequence[str], **kwargs) -> list[list[str]]:
-        """
-            Runs Kokoro text preprocessing and returns phoneme chunks used before acoustic inference.
-        
-            :param text_or_texts: input text(s) to phonemize
-            :type text_or_texts: str or list[str]
-        
-            :param properties: speech generation parameters specified as properties
-            :type properties: dict
-        
-            :returns: phoneme chunks (or per-input phoneme chunk lists)
-            :rtype: list[str] or list[list[str]]
-         
-         
-            SpeechGenerationConfig
-        
-            Shared parameters:
-            :param speed: speech speed multiplier.
-            :type speed: float
-            
-            Speech-generation specific parameters:
-            :param minlenratio: minimum ratio of output length to input text length; prevents output that's too short.
-            :type minlenratio: float
-        
-            :param maxlenratio: maximum ratio of output length to input text length; prevents excessively long outputs.
-            :type maxlenratio: float
-        
-            :param threshold: probability threshold for stopping decoding; when output probability exceeds above this, generation will stop.
-            :type threshold: float
-        
-            Kokoro-specific parameters:
-            :param language: language code for Kokoro G2P (for example, "en-us" or "en-gb").
-            :type language: str
-        
-            :param max_phoneme_length: maximum phoneme chunk length for Kokoro preprocessing.
-            :type max_phoneme_length: int
-        
-            :param phonemize_fallback_model_dir: Optional OpenVINO fallback phonemizer model directory.
-                                                 This applies only to fallback during phonemize / G2P
-                                                 (graphemes to phonemes), before acoustic model inference.
-                                                 If set, this OpenVINO G2P fallback is used.
-                                                 If unset (None), espeak-ng G2P fallback is used.
-                                                 For kwargs-based APIs (`SpeechGenerationConfig(**kwargs)`,
-                                                 `update_generation_config(**kwargs)`, and pipeline kwargs),
-                                                 omit this key instead of passing None because kwargs-to-AnyMap
-                                                 conversion rejects None values.
-            :type phonemize_fallback_model_dir: str | None
         """
     def set_generation_config(self, config: SpeechGenerationConfig) -> None:
         ...
@@ -4383,6 +4183,26 @@ class UNet2DConditionModel:
         UNet2DConditionModel model
                     UNet2DConditionModel class
                     model (UNet2DConditionModel): UNet2DConditionModel model
+        """
+    @typing.overload
+    def __init__(self, model: str, weights: openvino._pyopenvino.Tensor, config: UNet2DConditionModel.Config, vae_scale_factor: typing.SupportsInt) -> None:
+        """
+                    UNet2DConditionModel class constructor.
+                    model (str): Pre-read model.
+                    weights (ov.Tensor): Pre-read model weights tensor.
+                    config (UNet2DConditionModel.Config): UNet2DConditionModel configuration.
+                    vae_scale_factor (int): VAE scale factor.
+        """
+    @typing.overload
+    def __init__(self, model: str, weights: openvino._pyopenvino.Tensor, config: UNet2DConditionModel.Config, vae_scale_factor: typing.SupportsInt, device: str, **kwargs) -> None:
+        """
+                    UNet2DConditionModel class constructor.
+                    model (str): Pre-read model.
+                    weights (ov.Tensor): Pre-read model weights tensor.
+                    config (UNet2DConditionModel.Config): UNet2DConditionModel configuration.
+                    vae_scale_factor (int): VAE scale factor.
+                    device (str): Device on which inference will be done.
+                    kwargs: Device properties.
         """
     def compile(self, device: str, **kwargs) -> None:
         """

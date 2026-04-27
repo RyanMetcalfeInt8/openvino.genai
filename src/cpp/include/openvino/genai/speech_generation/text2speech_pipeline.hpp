@@ -22,19 +22,6 @@ struct Text2SpeechDecodedResults {
 };
 
 /**
- * Lightweight token representation for direct speech synthesis.
- *
- * Applications can map external G2P/tokenizer outputs (for example Python Misaki
- * MTokens) into this stable OV GenAI type without introducing hard dependency on
- * any external token class.
- */
-struct OPENVINO_GENAI_EXPORTS SpeechToken {
-    std::string phonemes;
-    bool whitespace = false;
-    std::string text;
-};
-
-/**
  * Text to speech pipelines which provides unified API to all supported models types.
  */
 class OPENVINO_GENAI_EXPORTS Text2SpeechPipeline {
@@ -61,8 +48,8 @@ public:
      * voice. If not provided for SpeechT5 TSS model, the 7306th vector from the validation set of the
      * `Matthijs/cmu-arctic-xvectors` dataset is used by default.
      * @param properties Speech generation parameters specified as properties
-    * @returns raw audios of the input texts spoken in the specified speaker's voice; sample rate is provided in
-    * `Text2SpeechDecodedResults::output_sample_rate`
+     * @returns raw audios of the input texts spoken in the specified speaker's voice; sample rate is provided in
+     * `Text2SpeechDecodedResults::output_sample_rate`
      */
     Text2SpeechDecodedResults generate(const std::string& text,
                                        const ov::Tensor& speaker_embedding = ov::Tensor(),
@@ -77,128 +64,18 @@ public:
      * voice. If not provided for SpeechT5 TSS model, the 7306th vector from the validation set of the
      * `Matthijs/cmu-arctic-xvectors` dataset is used by default.
      * @param properties Speech generation parameters specified as properties
-    * @returns raw audios of the input texts spoken in the specified speaker's voice; sample rate is provided in
-    * `Text2SpeechDecodedResults::output_sample_rate`
+     * @returns raw audios of the input texts spoken in the specified speaker's voice; sample rate is provided in
+     * `Text2SpeechDecodedResults::output_sample_rate`
      */
     Text2SpeechDecodedResults generate(const std::vector<std::string>& texts,
                                        const ov::Tensor& speaker_embedding = ov::Tensor(),
                                        const ov::AnyMap& properties = {});
-
-    /**
-     * Generates speech from precomputed Kokoro phoneme chunks for a single input.
-     *
-     * NOTE: This API is supported only for Kokoro backend.
-     *
-     * @param phoneme_chunks phoneme chunks to synthesize and concatenate into one output speech
-     * @param speaker_embedding Speaker embedding tensor.
-     * @param properties Speech generation parameters specified as properties
-     * @returns raw audio for a single synthesized speech; sample rate is provided in
-     * `Text2SpeechDecodedResults::output_sample_rate`
-     */
-    Text2SpeechDecodedResults generate_from_phonemes(const std::vector<std::string>& phoneme_chunks,
-                                                     const ov::Tensor& speaker_embedding = ov::Tensor(),
-                                                     const ov::AnyMap& properties = {});
-
-    /**
-     * Generates speech from precomputed Kokoro phoneme chunks for multiple inputs.
-     *
-     * NOTE: This API is supported only for Kokoro backend. SpeechT5 backend throws an exception.
-     *
-     * @param phoneme_chunks nested list where each item is a list of phoneme chunks for one output speech
-     * @param speaker_embedding Speaker embedding tensor.
-     * @param properties Speech generation parameters specified as properties
-     * @returns raw audios for synthesized speeches; sample rate is provided in
-     * `Text2SpeechDecodedResults::output_sample_rate`
-     */
-    Text2SpeechDecodedResults generate_from_phonemes(const std::vector<std::vector<std::string>>& phoneme_chunks,
-                                                     const ov::Tensor& speaker_embedding = ov::Tensor(),
-                                                     const ov::AnyMap& properties = {});
-
-    /**
-     * Generates speech from precomputed token stream for a single input.
-     *
-     * NOTE: This API is supported only for Kokoro backend.
-     *
-     * @param tokens token sequence used to build Kokoro phoneme chunks
-     * @param speaker_embedding Speaker embedding tensor.
-     * @param properties Speech generation parameters specified as properties
-     */
-    Text2SpeechDecodedResults generate_from_tokens(const std::vector<SpeechToken>& tokens,
-                                                   const ov::Tensor& speaker_embedding = ov::Tensor(),
-                                                   const ov::AnyMap& properties = {});
-
-    /**
-     * Generates speech from precomputed token streams for multiple inputs.
-     *
-     * NOTE: This API is supported only for Kokoro backend.
-     *
-     * @param token_batches nested list where each item is a token sequence for one output speech
-     * @param speaker_embedding Speaker embedding tensor.
-     * @param properties Speech generation parameters specified as properties
-     */
-    Text2SpeechDecodedResults generate_from_tokens(const std::vector<std::vector<SpeechToken>>& token_batches,
-                                                   const ov::Tensor& speaker_embedding = ov::Tensor(),
-                                                   const ov::AnyMap& properties = {});
-
-    /**
-     * Runs text preprocessing/phonemization and returns Kokoro phoneme chunks for one input text.
-     *
-     * NOTE: This API is temporary and currently exposed only for debugging/parity analysis
-     * between misaki-cpp and Python Misaki preprocessing behavior.
-     *
-     * @param text input text to phonemize
-     * @param properties Speech generation parameters specified as properties
-     * @returns phoneme chunks used by Kokoro backend prior to acoustic inference
-     */
-    std::vector<std::string> phonemize(const std::string& text,
-                                       const ov::AnyMap& properties = {});
-
-    /**
-     * Runs text preprocessing/phonemization and returns Kokoro phoneme chunks for each input text.
-     *
-     * NOTE: This API is temporary and currently exposed only for debugging/parity analysis
-     * between misaki-cpp and Python Misaki preprocessing behavior.
-     *
-     * @param texts input texts to phonemize
-     * @param properties Speech generation parameters specified as properties
-     * @returns a list of per-input phoneme chunk lists
-     */
-    std::vector<std::vector<std::string>> phonemize(const std::vector<std::string>& texts,
-                                                    const ov::AnyMap& properties = {});
 
     template <typename... Properties>
     Text2SpeechDecodedResults generate(const std::vector<std::string>& texts,
                                        const ov::Tensor& speaker_embedding = ov::Tensor(),
                                        Properties&&... properties) {
         return generate(texts, speaker_embedding, ov::AnyMap{std::forward<Properties>(properties)...});
-    }
-
-    template <typename... Properties>
-    Text2SpeechDecodedResults generate_from_phonemes(const std::vector<std::string>& phoneme_chunks,
-                                                     const ov::Tensor& speaker_embedding = ov::Tensor(),
-                                                     Properties&&... properties) {
-        return generate_from_phonemes(phoneme_chunks, speaker_embedding, ov::AnyMap{std::forward<Properties>(properties)...});
-    }
-
-    template <typename... Properties>
-    Text2SpeechDecodedResults generate_from_phonemes(const std::vector<std::vector<std::string>>& phoneme_chunks,
-                                                     const ov::Tensor& speaker_embedding = ov::Tensor(),
-                                                     Properties&&... properties) {
-        return generate_from_phonemes(phoneme_chunks, speaker_embedding, ov::AnyMap{std::forward<Properties>(properties)...});
-    }
-
-    template <typename... Properties>
-    Text2SpeechDecodedResults generate_from_tokens(const std::vector<SpeechToken>& tokens,
-                                                   const ov::Tensor& speaker_embedding = ov::Tensor(),
-                                                   Properties&&... properties) {
-        return generate_from_tokens(tokens, speaker_embedding, ov::AnyMap{std::forward<Properties>(properties)...});
-    }
-
-    template <typename... Properties>
-    Text2SpeechDecodedResults generate_from_tokens(const std::vector<std::vector<SpeechToken>>& token_batches,
-                                                   const ov::Tensor& speaker_embedding = ov::Tensor(),
-                                                   Properties&&... properties) {
-        return generate_from_tokens(token_batches, speaker_embedding, ov::AnyMap{std::forward<Properties>(properties)...});
     }
 
     /// @brief Extract GenerationConfig used to get default values.
