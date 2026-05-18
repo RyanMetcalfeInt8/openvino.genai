@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 #include "english_lexicon.hpp"
 
 #include <cctype>
@@ -97,8 +100,12 @@ private:
            "\n - set_english_lexicon_data_root(...) override"
            "\n - MISAKI_DATA_DIR environment variable"
            "\nTried:";
-    for (const auto &path : attempted_paths) {
-      oss << "\n - " << path.string();
+    if (attempted_paths.empty()) {
+      oss << "\n - <none provided>";
+    } else {
+      for (const auto &path : attempted_paths) {
+        oss << "\n - " << path.string();
+      }
     }
 
     throw std::runtime_error(oss.str());

@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
 cmake_minimum_required(VERSION 3.20)
 project(misaki_cpp VERSION 0.1.0 LANGUAGES CXX)
 
@@ -24,6 +27,7 @@ add_library(misaki_cpp STATIC
   src/english_lexicon.cpp
   src/factory_stub.cpp
 )
+set_target_properties(misaki_cpp PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(misaki_cpp
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -68,15 +72,6 @@ install(
 install(
   DIRECTORY include/
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
-
-install(
-  FILES
-    data/us_gold.json
-    data/us_silver.json
-    data/gb_gold.json
-    data/gb_silver.json
-  DESTINATION ${CMAKE_INSTALL_DATADIR}/misaki/data
 )
 
 install(

@@ -88,7 +88,6 @@ def run_test(model_id, model_type, speaker_embeddings, optimum_threshold, genai_
     ]
     if speaker_embeddings is not None:
         optimum_args.extend(["--speaker_embeddings", speaker_embeddings])
-    print("running wwb with optimum args:", optimum_args)
     output = run_wwb(optimum_args)
 
     optimum_score = get_overall_score(output)
@@ -113,7 +112,6 @@ def run_test(model_id, model_type, speaker_embeddings, optimum_threshold, genai_
     ]
     if speaker_embeddings is not None:
         genai_args.extend(["--speaker_embeddings", speaker_embeddings])
-    print("running wwb with genai args:", genai_args)
     output = run_wwb(genai_args)
 
     genai_score = get_overall_score(output)
@@ -228,6 +226,9 @@ def run_kokoro_test(model_id, model_type, speech_voice, speech_language, optimum
     assert genai_score_no_gen == genai_score
 
 
+@pytest.mark.transformers_lower_v5(
+    reason="version of the speechbrain module compatible with transformers v5.0 causes an import error with k2 module on Windows."
+)
 @pytest.mark.speech_generation
 @pytest.mark.speecht5
 @pytest.mark.parametrize(
@@ -277,6 +278,10 @@ def test_tts_kokoro_hf_requires_voice(tmp_path):
 def test_tts_kokoro(model_id, model_type, speech_voice, speech_language, optimum_threshold, genai_threshold, tmp_path):
     run_kokoro_test(model_id, model_type, speech_voice, speech_language, optimum_threshold, genai_threshold, tmp_path)
 
+@pytest.mark.transformers_lower_v5(
+    reason="version of the speechbrain module compatible with transformers v5.0 causes an import error with k2 module on Windows."
+)
+@pytest.mark.speech_generation
 @pytest.mark.speecht5
 def test_tts_speecht5_default_speaker_embeddings(tmp_path):
     model_id = "microsoft/speecht5_tts"
@@ -289,4 +294,3 @@ def test_tts_speecht5_default_speaker_embeddings(tmp_path):
         genai_threshold=0.90,
         tmp_path=tmp_path,
     )
-

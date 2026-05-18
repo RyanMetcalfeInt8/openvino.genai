@@ -9,7 +9,7 @@ This folder contains C++ examples for `ov::genai::Text2SpeechPipeline`.
 	- Usually uses a speaker embedding file.
 - **Kokoro**
 	- Uses a Kokoro model directory.
-	- Uses `--speaker_embedding_file_path` and `--language` options.
+	- Uses a speaker embedding file and language options.
 	- End-to-end Kokoro language support includes:
 		- `en-us` (English, United States)
 		- `en-gb` (English, United Kingdom)
@@ -34,11 +34,14 @@ Create a speaker embedding file (SpeechT5-specific):
 `python ../../python/speech_generation/create_speaker_embedding.py`
 
 ## Kokoro setup
-
+```sh
+pip install --upgrade-strategy eager -r ../../export-requirements.txt
+pip install kokoro
 optimum-cli export openvino -m hexgrad/Kokoro-82M ov_Kokoro-82M --trust-remote-code
+```
 
 > **Note:**
-> After export is complete. you will find the available speaker embedding `.bin` files in `ov_Kokoro-82M/voices`.
+> After export is complete, you will find the available speaker embedding `.bin` files in `ov_Kokoro-82M/voices`.
 
 ## Use of `espeak-ng` within the Kokoro Pipeline
 
@@ -62,16 +65,24 @@ https://github.com/espeak-ng/espeak-ng/blob/master/docs/guide.md
 ### 1) `text2speech`
 
 SpeechT5:
-
-`text2speech speecht5_tts "Hello from OpenVINO GenAI" speaker_embedding.bin`
+```
+text2speech speecht5_tts "Hello from OpenVINO GenAI" speaker_embedding.bin
+```
 
 Kokoro:
-
-`text2speech ov_Kokoro-82M "Hello, and welcome to speech generation using OpenVINO GenAI." ov_Kokoro-82M/voices/af_heart.bin --language en-us`
+```
+text2speech ov_Kokoro-82M "Hello, and welcome to speech generation using OpenVINO GenAI." ov_Kokoro-82M/voices/af_heart.bin --language en-us
+```
 
 Kokoro (non-English):
+```
+text2speech ov_Kokoro-82M "Hola y bienvenidos a la generación de voz utilizando OpenVINO GenAI." ov_Kokoro-82M/voices/ef_dora.bin --language es
+```
 
-`text2speech ov_Kokoro-82M "Hola y bienvenidos a la generación de voz utilizando OpenVINO GenAI." ov_Kokoro-82M/voices/ef_dora.bin --language es`
+Text2speech with speed control:
+```
+text2speech ov_Kokoro-82M "Hello from OpenVINO GenAI with a faster speaking rate." ov_Kokoro-82M/voices/af_heart.bin --language en-us --speed 1.15
+```
 
 ### 2) `kokoro_phonemize_fallback` (Kokoro only)
 
@@ -79,31 +90,36 @@ This sample demonstrates how to use an OpenVINO-based fallback model for phonemi
 
 **Why use a fallback model instead of `espeak-ng`?**
 
-While `espeak-ng` provides robust phonemization, it is licensed under GPLv3, which can introduce complications for redistribution in certain applications. Using an OpenVINO-based fallback model avoids this dependency entirely, enabling a more self-contained and permissively licensed deployment.
+While `espeak-ng` provides robust phonemization, using an OpenVINO-based fallback model avoids the need for external dependencies and consideration of their associated licensing requirements, enabling a more self-contained and uniformly licensed deployment.
 
 #### Export OV fallback models:
 
 US:
-
-`optimum-cli export openvino --model PeterReid/graphemes_to_phonemes_en_us --task text2text-generation graphemes_to_phonemes_en_us-ov`
+```
+optimum-cli export openvino --model PeterReid/graphemes_to_phonemes_en_us --task text2text-generation graphemes_to_phonemes_en_us-ov
+```
 
 GB:
-
-`optimum-cli export openvino --model PeterReid/graphemes_to_phonemes_en_gb --task text2text-generation graphemes_to_phonemes_en_gb-ov`
+```
+optimum-cli export openvino --model PeterReid/graphemes_to_phonemes_en_gb --task text2text-generation graphemes_to_phonemes_en_gb-ov
+```
 
 #### Run using fallback models:
 
 US model + `en-us`:
-
-`kokoro_phonemize_fallback ov_Kokoro-82M "Vellorin traded copperchimes for rainmint at Candlehaven." --speaker_embedding_file_path ov_Kokoro-82M/voices/af_heart.bin --language en-us --phonemize_fallback_model_dir graphemes_to_phonemes_en_us-ov`
+```
+kokoro_phonemize_fallback ov_Kokoro-82M "Vellorin traded copperchimes for rainmint at Candlehaven." --speaker_embedding_file_path ov_Kokoro-82M/voices/af_heart.bin --language en-us --phonemize_fallback_model_dir graphemes_to_phonemes_en_us-ov
+```
 
 GB model + `en-gb`:
-
-`kokoro_phonemize_fallback ov_Kokoro-82M "Vellorin traded copperchimes for rainmint at Candlehaven." --speaker_embedding_file_path ov_Kokoro-82M/voices/bf_emma.bin --language en-gb --phonemize_fallback_model_dir graphemes_to_phonemes_en_gb-ov`
+```
+kokoro_phonemize_fallback ov_Kokoro-82M "Vellorin traded copperchimes for rainmint at Candlehaven." --speaker_embedding_file_path ov_Kokoro-82M/voices/bf_emma.bin --language en-gb --phonemize_fallback_model_dir graphemes_to_phonemes_en_gb-ov
+```
 
 To run with default `espeak-ng` fallback:
-
-`kokoro_phonemize_fallback ov_Kokoro-82M "Vellorin traded copperchimes for rainmint at Candlehaven." --speaker_embedding_file_path ov_Kokoro-82M/voices/af_heart.bin --language en-us`
+```
+kokoro_phonemize_fallback ov_Kokoro-82M "Vellorin traded copperchimes for rainmint at Candlehaven." --speaker_embedding_file_path ov_Kokoro-82M/voices/af_heart.bin --language en-us
+```
 
 Set `--language` to match the fallback model variant (`en-us` with `..._en_us-ov`, `en-gb` with `..._en_gb-ov`).
 OpenVINO fallback models above are an English-only feature (`en-us` / `en-gb`). For non-English Kokoro languages, phonemization is handled directly by `espeak-ng` as the primary G2P path (this fallback-model feature is not used).

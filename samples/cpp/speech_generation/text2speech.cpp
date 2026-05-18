@@ -73,15 +73,14 @@ int main(int argc, char* argv[]) try {
         args.size() >= 3,
         "Usage: ",
         args[0],
-        " <MODEL_DIR> \"<PROMPT>\" [<SPEAKER_EMBEDDING_BIN_FILE>] [--language <en-us|en-gb|es|fr-fr|hi|it|pt-br>] [--speed <FLOAT>] [--sample_rate <INT>]");
+        " <MODEL_DIR> \"<PROMPT>\" [<SPEAKER_EMBEDDING_BIN_FILE>] [--language <en-us|en-gb|es|fr-fr|hi|it|pt-br>] [--speed <FLOAT>] [--device <DEVICE>]");
 
     const std::string models_path = args[1], prompt = args[2];
-    const std::string device = "CPU";
+    std::string device = "CPU";
 
     std::optional<std::string> speaker_embedding_path;
     std::string language;
     float speed = 1.0f;
-    uint32_t sample_rate = 0;
 
     int arg_idx = 3;
     if (arg_idx < static_cast<int>(args.size()) && args[arg_idx].rfind("--", 0) != 0) {
@@ -97,8 +96,8 @@ int main(int argc, char* argv[]) try {
             language = value;
         } else if (option == "--speed") {
             speed = std::stof(value);
-        } else if (option == "--sample_rate") {
-            sample_rate = static_cast<uint32_t>(std::stoul(value));
+        } else if (option == "--device") {
+            device = value;
         } else {
             OPENVINO_THROW("Unknown option: ", option);
         }
@@ -129,7 +128,7 @@ int main(int argc, char* argv[]) try {
     auto waveform_size = gen_speech.speeches[0].get_size();
     auto waveform_ptr = gen_speech.speeches[0].data<const float>();
     auto bits_per_sample = gen_speech.speeches[0].get_element_type().bitwidth();
-    const uint32_t output_sample_rate = sample_rate > 0 ? sample_rate : gen_speech.output_sample_rate;
+    const uint32_t output_sample_rate = gen_speech.output_sample_rate;
     utils::audio::save_to_wav(waveform_ptr, waveform_size, output_file_name, bits_per_sample, output_sample_rate);
     std::cout << "[Info] Text successfully converted to audio file \"" << output_file_name << "\"." << std::endl;
 

@@ -1,3 +1,6 @@
+// Copyright (C) 2023-2026 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 #include "misaki/g2p.hpp"
 #include "misaki/fallbacks.hpp"
 
@@ -31,7 +34,7 @@ void print_utf8_console_diagnostics() {
 }
 } // namespace
 
-int main() {
+int main() try {
   configure_utf8_console();
   print_utf8_console_diagnostics();
 
@@ -73,4 +76,10 @@ int main() {
   }
 
   return 0;
+} catch (const std::exception& error) {
+  std::cerr << "[Error] " << error.what() << "\n";
+  return 3;
+} catch (...) {
+  std::cerr << "[Error] Unknown exception\n";
+  return 3;
 }
