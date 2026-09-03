@@ -105,13 +105,31 @@ public:
     void set_generation_config(const ASRGenerationConfig& config);
 };
 
+/// Selects how a streaming session decides which trailing text is safe to commit.
+enum class ASRCommitPolicy {
+    /// Fixed trailing-token rollback: forces the bounded, evicting text history onto the decoder
+    /// as literal prefix tokens every pass, then trims a fixed number of tokens off the tail of
+    /// the raw output as still-unstable.
+    Rollback,
+    /// Two-pass word-level agreement (LocalAgreement, as in the `whisper_streaming` reference
+    /// project): every pass fully re-decodes the audio window without any forced prefix, and
+    /// text is only committed once it agrees, word for word from the front, with the previous
+    /// pass's hypothesis. The amount of trailing unstable text is therefore dynamic rather than a
+    /// fixed guess, at the cost of committing one pass later than Rollback would. Currently
+    /// implemented for Whisper streaming only.
+    Agreement,
+};
+
 /// Parameters controlling a single streaming ASR session.
 struct OPENVINO_GENAI_EXPORTS ASRStreamingConfig {
     /// Audio duration to accumulate before triggering a decode pass.
     float chunk_size_sec = 2.0f;
     /// Number of initial decode passes run without a prefix (cold-start).
     size_t warmup_chunks = 2;
+    /// Which commit policy to use. See ASRCommitPolicy.
+    ASRCommitPolicy commit_policy = ASRCommitPolicy::Rollback;
     /// Tokens rolled back from accumulated output when computing the prefix for the next pass.
+    /// Only meaningful under ASRCommitPolicy::Rollback.
     size_t context_rollback_tokens = 5;
 
     /// Maximum chunks of audio retained in the sliding window before older, already-decoded
@@ -129,7 +147,9 @@ struct OPENVINO_GENAI_EXPORTS ASRStreamingConfig {
     /// Experimental. When true, disables eviction of the text-history prefix
     /// tied to the audio sliding window (see window_chunk_num), so the decoder prefix grows
     /// unbounded for the life of the session even though the audio window itself still stays
-    /// bounded..
+    /// bounded. Only meaningful under ASRCommitPolicy::Rollback -- ignored under
+    /// ASRCommitPolicy::Agreement, which always promotes evicted history into a plain prompt on
+    /// the normal schedule (there is no forced prefix to keep unbounded under Agreement).
     bool unbounded_prefix = false;
 };
 

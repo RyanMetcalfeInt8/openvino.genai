@@ -4,6 +4,7 @@
 #include "streaming_session.hpp"
 
 #include <algorithm>
+#include <cctype>
 
 #include "automatic_speech_recognition/debug_dump.hpp"
 #include "automatic_speech_recognition/sliding_window.hpp"
@@ -19,6 +20,37 @@ static constexpr size_t WHISPER_MAX_SAMPLES = 480000;
 
 // UTF-8 encoding of U+FFFD REPLACEMENT CHARACTER — signals a corrupted decode boundary.
 static constexpr const char* REPLACEMENT_CHAR_UTF8 = "\xef\xbf\xbd";
+
+// Splits on runs of ASCII whitespace, dropping empty tokens. Safe on UTF-8 text: continuation
+// bytes never equal the ASCII space/tab/newline byte values being split on.
+std::vector<std::string> split_words(const std::string& text) {
+    std::vector<std::string> words;
+    size_t i = 0;
+    while (i < text.size()) {
+        while (i < text.size() && std::isspace(static_cast<unsigned char>(text[i]))) {
+            ++i;
+        }
+        size_t start = i;
+        while (i < text.size() && !std::isspace(static_cast<unsigned char>(text[i]))) {
+            ++i;
+        }
+        if (i > start) {
+            words.emplace_back(text.substr(start, i - start));
+        }
+    }
+    return words;
+}
+
+std::string join_words(const std::vector<std::string>& words) {
+    std::string joined;
+    for (const auto& word : words) {
+        if (!joined.empty()) {
+            joined += ' ';
+        }
+        joined += word;
+    }
+    return joined;
+}
 
 }  // namespace
 
@@ -68,6 +100,9 @@ std::string WhisperASRStreamingSessionImpl::trim_rollback(const std::string& raw
 std::string WhisperASRStreamingSessionImpl::history_text() const {
     std::string text;
     for (const auto& rec : m_commit_history) {
+        if (!text.empty() && !rec.text_delta.empty()) {
+            text += ' ';
+        }
         text += rec.text_delta;
     }
     return text;
@@ -146,6 +181,116 @@ void WhisperASRStreamingSessionImpl::decode_current_accum() {
     m_current_new_committed_text = delta;
 }
 
+void WhisperASRStreamingSessionImpl::decode_current_accum_agreement() {
+    // Evict commit_history entries whose grounding audio has scrolled out of m_audio_accum, same
+    // trigger as the Rollback path -- but here the evicted text is preserved (appended to
+    // m_evicted_prompt_text) rather than discarded, since Agreement needs it as plain prompt
+    // context instead of a forced prefix. unbounded_prefix is intentionally not consulted here:
+    // it has no faithful analog once there is no forced prefix to keep unbounded, so Agreement
+    // always evicts on the normal schedule.
+    while (!m_commit_history.empty() &&
+           (m_commit_history.front().chunk_index + 1) * m_chunk_size_samples <= m_total_dropped_samples) {
+        if (!m_evicted_prompt_text.empty() && !m_commit_history.front().text_delta.empty()) {
+            m_evicted_prompt_text += ' ';
+        }
+        m_evicted_prompt_text += m_commit_history.front().text_delta;
+        m_commit_history.pop_front();
+    }
+
+    // Still-in-window committed text (identical to Rollback's prefix_text) -- the sliding window
+    // may not yet have scrolled past all of it, so this pass's unprompted re-decode can legitimately
+    // reproduce some of it at the front of its output before reaching genuinely new content. Used
+    // below to find exactly how much, by content rather than a word count (the window can drop only
+    // *part* of a given pass's audio, so only part of that pass's committed words may still be
+    // audible -- a count-based skip would over- or under-skip).
+    const std::vector<std::string> history_words = split_words(history_text());
+
+    ASRGenerationConfig config_for_pass = m_generation_config;
+    if (!m_evicted_prompt_text.empty()) {
+        config_for_pass.initial_prompt = m_evicted_prompt_text;
+    }
+    // No forced prefix under Agreement: every pass re-decodes the window from scratch and lets
+    // the two-pass word comparison below decide what is stable.
+
+    if (asr_debug_dump_enabled()) {
+        asr_debug_dump_chunk("whisper", m_chunk_count, m_audio_accum, /*sample_rate=*/16000, m_evicted_prompt_text);
+    }
+
+    const ASRDecodedResults results = m_pipeline->generate(m_audio_accum, config_for_pass, nullptr);
+    OPENVINO_ASSERT(!results.texts.empty(), "WhisperASRStreamingSessionImpl: generate returned empty results");
+
+    m_current_language = results.languages.empty() ? "" : results.languages[0];
+    m_current_text = results.texts[0];
+    const std::vector<std::string> new_words = split_words(m_current_text);
+    const size_t this_chunk_index = m_chunk_count;
+    ++m_chunk_count;
+
+    if (this_chunk_index < m_streaming_config.warmup_chunks) {
+        // Cold-start: nothing to agree against yet, so nothing commits this pass.
+        m_prev_hypothesis_tail_words = new_words;
+        m_current_partial_text = m_current_text;
+        m_current_new_committed_text = "";
+        return;
+    }
+
+    // Locate the reproduced-history prefix by content: the longest suffix of history_words that
+    // exactly matches a prefix of new_words. Everything up through that overlap is just this
+    // pass re-transcribing audio whose text was already committed, not new hypothesis content --
+    // comparing it against m_prev_hypothesis_tail_words (which starts *after* that same point,
+    // by construction, since it's assigned from the previous pass's own post-overlap tail below)
+    // would compare two unrelated spans of text and spuriously reset agreement to 0.
+    size_t overlap = std::min(history_words.size(), new_words.size());
+    for (; overlap > 0; --overlap) {
+        if (std::equal(history_words.end() - overlap, history_words.end(), new_words.begin())) {
+            break;
+        }
+    }
+    const std::vector<std::string> fresh_words(new_words.begin() + overlap, new_words.end());
+
+    // Longest word-for-word agreement between this pass's genuinely new hypothesis and the
+    // previous pass's still-provisional tail, from the front -- mirrors whisper_streaming's
+    // HypothesisBuffer.flush(). Everything up to the first mismatch (or the shorter list's end)
+    // is now confirmed by two independent decode passes and safe to commit.
+    size_t agreed = 0;
+    while (agreed < fresh_words.size() && agreed < m_prev_hypothesis_tail_words.size() &&
+           fresh_words[agreed] == m_prev_hypothesis_tail_words[agreed]) {
+        ++agreed;
+    }
+
+    const std::vector<std::string> committed_words(fresh_words.begin(), fresh_words.begin() + agreed);
+    std::vector<std::string> tail_words(fresh_words.begin() + agreed, fresh_words.end());
+
+    if (asr_debug_dump_enabled()) {
+        asr_debug_dump_agreement_trace(this_chunk_index, m_evicted_prompt_text,
+                                       static_cast<float>(m_total_dropped_samples) / 16000.0f,
+                                       static_cast<float>(m_audio_accum.size()) / 16000.0f, history_words,
+                                       new_words, overlap, m_prev_hypothesis_tail_words, agreed, tail_words);
+    }
+
+    const std::string delta = join_words(committed_words);
+    // The leading separator, when present, is part of what's newly appended -- included in
+    // new_committed_text so `previous committed_text + new_committed_text` always reconstructs
+    // the updated committed_text exactly, as ASRPartialResult's contract promises.
+    std::string delta_with_separator = delta;
+    if (!delta.empty()) {
+        if (!m_current_committed_text.empty()) {
+            delta_with_separator = ' ' + delta;
+        }
+        m_commit_history.push_back({this_chunk_index, delta});
+        m_current_committed_text += delta_with_separator;
+    }
+
+    // Same separator logic as above: partial_text is meant to be displayed appended directly
+    // after committed_text, so it needs its own leading space when both are non-empty.
+    std::string partial_text = join_words(tail_words);
+    if (!partial_text.empty() && !m_current_committed_text.empty()) {
+        partial_text = ' ' + partial_text;
+    }
+    m_current_partial_text = std::move(partial_text);
+    m_current_new_committed_text = delta_with_separator;
+    m_prev_hypothesis_tail_words = std::move(tail_words);
+}
+
 std::optional<ASRPartialResult> WhisperASRStreamingSessionImpl::push_chunk(const std::vector<float>& pcm16k) {
     if (m_window_full) {
         // The Whisper 30-second window is exhausted; callers should invoke finish().
@@ -183,7 +328,11 @@ std::optional<ASRPartialResult> WhisperASRStreamingSessionImpl::push_chunk(const
         m_buffer.clear();  // discard audio that would exceed the window
     }
 
-    decode_current_accum();
+    if (m_streaming_config.commit_policy == ASRCommitPolicy::Agreement) {
+        decode_current_accum_agreement();
+    } else {
+        decode_current_accum();
+    }
     return ASRPartialResult{m_current_language, m_current_committed_text,
                             m_current_new_committed_text, m_current_partial_text};
 }
@@ -206,7 +355,11 @@ ASRPartialResult WhisperASRStreamingSessionImpl::finish() {
                                                              m_streaming_config.window_rollback_chunk_num);
 
         if (!m_audio_accum.empty()) {
-            decode_current_accum();
+            if (m_streaming_config.commit_policy == ASRCommitPolicy::Agreement) {
+                decode_current_accum_agreement();
+            } else {
+                decode_current_accum();
+            }
         }
     }
 

@@ -15,7 +15,18 @@
 //   --window-chunks N          — sliding window size in chunks, 0 = unbounded (default: 6)
 //   --window-rollback-chunks N — unfixed rollback chunks within the window (default: 2)
 //   --unbounded-prefix         — experimental, Qwen3-ASR only: keep audio bounded (per
-//                                --window-chunks) but stop evicting the text prefix.
+//                                --window-chunks) but stop evicting the text prefix. Ignored
+//                                under --commit-policy agreement.
+//   --commit-policy POLICY     — "rollback" (default) or "agreement" (two-pass word-level
+//                                LocalAgreement, no forced prefix; Whisper streaming only)
+//   --max-new-tokens N         — generated-token budget per decode pass (default: 32). Under
+//                                --commit-policy agreement, every pass re-decodes the *entire*
+//                                current window with no forced prefix, so this budget must cover
+//                                the whole window's transcript, not just the newly-arrived audio
+//                                (unlike rollback, where old content is fed as a forced prefix and
+//                                only the new increment needs generation budget). Roughly 8 tokens
+//                                per second of (window_chunk_num * chunk_sec) is a safe starting
+//                                point for agreement.
 //   --repetition-penalty F     — generation repetition penalty, 1.0 = disabled (default: 1.0)
 //   --no-repeat-ngram-size N   — forbid repeating any N-gram, 0 = disabled (default: 0)
 
@@ -44,7 +55,8 @@ int main(int argc, char* argv[]) try {
                                  " <MODEL_DIR> <WAV_FILE> [DEVICE] [CHUNK_SEC] [STEP_MS] "
                                  "[--device DEVICE] [--chunk-sec SEC] [--step-ms MS] "
                                  "[--window-chunks N] [--window-rollback-chunks N] "
-                                 "[--unbounded-prefix] "
+                                 "[--unbounded-prefix] [--commit-policy rollback|agreement] "
+                                 "[--max-new-tokens N] "
                                  "[--repetition-penalty F] [--no-repeat-ngram-size N]");
     }
 
@@ -56,6 +68,8 @@ int main(int argc, char* argv[]) try {
     size_t window_chunks = 6;
     size_t window_rollback_chunks = 2;
     bool unbounded_prefix = false;
+    ov::genai::ASRCommitPolicy commit_policy = ov::genai::ASRCommitPolicy::Rollback;
+    size_t max_new_tokens = 32;
     float repetition_penalty = 1.0f;
     size_t no_repeat_ngram_size = 0;
 
@@ -108,6 +122,30 @@ int main(int argc, char* argv[]) try {
             continue;
         }
 
+        if (arg == "--commit-policy") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("Missing value for --commit-policy");
+            }
+            const std::string policy = argv[++i];
+            if (policy == "rollback") {
+                commit_policy = ov::genai::ASRCommitPolicy::Rollback;
+            } else if (policy == "agreement") {
+                commit_policy = ov::genai::ASRCommitPolicy::Agreement;
+            } else {
+                throw std::runtime_error("Unknown --commit-policy value: " + policy +
+                                          " (expected \"rollback\" or \"agreement\")");
+            }
+            continue;
+        }
+
+        if (arg == "--max-new-tokens") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("Missing value for --max-new-tokens");
+            }
+            max_new_tokens = static_cast<size_t>(std::stoul(argv[++i]));
+            continue;
+        }
+
         if (arg == "--repetition-penalty") {
             if (i + 1 >= argc) {
                 throw std::runtime_error("Missing value for --repetition-penalty");
@@ -145,7 +183,7 @@ int main(int argc, char* argv[]) try {
     ov::genai::ASRPipeline pipeline(models_path, device);
 
     ov::genai::ASRGenerationConfig gen_config = pipeline.get_generation_config();
-    gen_config.max_new_tokens = 32;  // keep chunk decodes fast
+    gen_config.max_new_tokens = max_new_tokens;
     gen_config.repetition_penalty = repetition_penalty;
     if (no_repeat_ngram_size > 0) {
         gen_config.no_repeat_ngram_size = no_repeat_ngram_size;
@@ -153,11 +191,12 @@ int main(int argc, char* argv[]) try {
 
     ov::genai::ASRStreamingConfig streaming_config;
     streaming_config.chunk_size_sec = chunk_sec;
-    streaming_config.warmup_chunks = 2;
+    streaming_config.warmup_chunks = 0;
     streaming_config.context_rollback_tokens = 5;
     streaming_config.window_chunk_num = window_chunks;
     streaming_config.window_rollback_chunk_num = window_rollback_chunks;
     streaming_config.unbounded_prefix = unbounded_prefix;
+    streaming_config.commit_policy = commit_policy;
 
     std::cout << "Loading audio: " << wav_file << "\n";
     const ov::genai::RawSpeechInput wav = utils::audio::read_wav(wav_file);

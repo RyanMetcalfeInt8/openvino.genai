@@ -15,6 +15,7 @@
 #include "tokenizer/tokenizers_path.hpp"
 
 namespace py = pybind11;
+using ov::genai::ASRCommitPolicy;
 using ov::genai::ASRDecodedResultChunk;
 using ov::genai::ASRDecodedResults;
 using ov::genai::ASRGenerationConfig;
@@ -79,6 +80,21 @@ auto asr_decoded_result_chunk_docstring = R"(
     :param token_ids token ids corresponding to the chunk text
 )";
 
+auto asr_commit_policy_docstring = R"(
+    ASRCommitPolicy
+
+    Selects how a streaming session decides which trailing text is safe to commit.
+
+    ROLLBACK - fixed trailing-token rollback: forces the bounded, evicting text history onto the
+    decoder as literal prefix tokens every pass, then trims a fixed number of tokens off the tail
+    of the raw output as still-unstable.
+
+    AGREEMENT - two-pass word-level agreement (LocalAgreement): every pass fully re-decodes the
+    audio window without any forced prefix, and text is only committed once it agrees, word for
+    word from the front, with the previous pass's hypothesis. Currently implemented for Whisper
+    streaming only.
+)";
+
 auto asr_streaming_config_docstring = R"(
     ASRStreamingConfig
 
@@ -90,8 +106,12 @@ auto asr_streaming_config_docstring = R"(
     :param warmup_chunks: Number of initial decode passes run without a prefix.
     :type warmup_chunks: int
 
+    :param commit_policy: Which commit policy to use. See ASRCommitPolicy.
+    :type commit_policy: ASRCommitPolicy
+
     :param context_rollback_tokens: Number of trailing tokens to rewind from the accumulated text when
-                                    reusing it as a prefix for the next decode pass.
+                                    reusing it as a prefix for the next decode pass. Only meaningful
+                                    under ASRCommitPolicy.ROLLBACK.
     :type context_rollback_tokens: int
 
     :param window_chunk_num: Maximum chunks of audio retained in the sliding window before older,
@@ -109,6 +129,7 @@ auto asr_streaming_config_docstring = R"(
                              text-history prefix tied to the audio sliding window, so the decoder
                              prefix grows unbounded for the life of the session even though the
                              audio window itself still stays bounded. Ignored when window_chunk_num == 0.
+                             Only meaningful under ASRCommitPolicy.ROLLBACK.
     :type unbounded_prefix: bool
 )";
 
@@ -381,10 +402,15 @@ void init_asr_pipeline(py::module_& m) {
             return res;
         });
 
+    py::enum_<ASRCommitPolicy>(m, "ASRCommitPolicy", asr_commit_policy_docstring)
+        .value("ROLLBACK", ASRCommitPolicy::Rollback)
+        .value("AGREEMENT", ASRCommitPolicy::Agreement);
+
     py::class_<ASRStreamingConfig>(m, "ASRStreamingConfig", asr_streaming_config_docstring)
         .def(py::init<>())
         .def_readwrite("chunk_size_sec", &ASRStreamingConfig::chunk_size_sec)
         .def_readwrite("warmup_chunks", &ASRStreamingConfig::warmup_chunks)
+        .def_readwrite("commit_policy", &ASRStreamingConfig::commit_policy)
         .def_readwrite("context_rollback_tokens", &ASRStreamingConfig::context_rollback_tokens)
         .def_readwrite("window_chunk_num", &ASRStreamingConfig::window_chunk_num)
         .def_readwrite("window_rollback_chunk_num", &ASRStreamingConfig::window_rollback_chunk_num)

@@ -24,6 +24,7 @@ public:
     ASRPartialResult finish() override;
 
 private:
+    // ASRCommitPolicy::Rollback path.
     void decode_current_accum();
     // Trims context_rollback_tokens off the tail of an arbitrary raw string (retrying with a
     // larger rollback on a UTF-8 boundary corruption). Operates on a plain parameter rather than
@@ -33,6 +34,10 @@ private:
     // prefix is this text verbatim (Whisper needs no language-tag wrapping the way Qwen3-ASR's
     // text-prompt-based prefix does).
     std::string history_text() const;
+
+    // ASRCommitPolicy::Agreement path: full re-decode every pass, no forced prefix, committing
+    // only the word-level prefix that agrees with the previous pass's hypothesis.
+    void decode_current_accum_agreement();
 
     WhisperASRPipelineAdapter* m_pipeline;  // non-owning; lifetime guaranteed by ASRPipeline
     ASRStreamingConfig m_streaming_config;
@@ -51,6 +56,16 @@ private:
         std::string text_delta;
     };
     std::deque<CommitRecord> m_commit_history;
+
+    // Agreement policy only. Append-only: text evicted from m_commit_history lands here instead
+    // of being discarded, becoming the plain (non-forced) initial_prompt for all future passes --
+    // the audio it describes has scrolled out of m_audio_accum, so it is never re-derived by the
+    // agreement comparison below and is safe to fix permanently.
+    std::string m_evicted_prompt_text;
+    // Agreement policy only. The still-provisional tail words from the previous pass's
+    // hypothesis, compared word-for-word against each new pass's hypothesis to find the newly
+    // agreed (and therefore committable) prefix.
+    std::vector<std::string> m_prev_hypothesis_tail_words;
 
     size_t m_chunk_count = 0;
     size_t m_chunk_size_samples;

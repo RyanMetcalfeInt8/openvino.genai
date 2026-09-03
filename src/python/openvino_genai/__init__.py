@@ -86,6 +86,7 @@ from .py_openvino_genai import TokenizedInputs, Tokenizer
 
 # ASR pipeline
 from .py_openvino_genai import (
+    ASRCommitPolicy,
     ASRDecodedResultChunk,
     ASRDecodedResults,
     ASRGenerationConfig,
